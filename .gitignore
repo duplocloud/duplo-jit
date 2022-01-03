@@ -1,0 +1,14 @@
+.idea/
+*.log
+test/
+bin/
+_temp/
+.terraform
+terraform.tfstate
+terraform.tfstate.backup
+terraform.tfstate.*
+.DS_Store
+.terraform.lock.hcl
+*~
+duplo-aws-jit
+duplo-aws-credential-process
