@@ -32,7 +32,7 @@ jobs:
           go-version: 1.16
       - 
         name: Run formatting
-        run: gofmt -s -w duplocloud duplosdk
+        run: gofmt -s -w duplocloud cmd/duplo-aws-credential-process
       - 
         name: Check if formatting changed
         id: git-check
