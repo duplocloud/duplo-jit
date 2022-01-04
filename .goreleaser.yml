@@ -24,7 +24,7 @@ builds:
     ignore:
       - goos: darwin
         goarch: '386'
-    binary: 'duplo-aws-credential-process_v{{ .Version }}'
+    binary: 'duplo-aws-credential-process'
 archives:
   - format: zip
     name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
