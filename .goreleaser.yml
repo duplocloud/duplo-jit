@@ -40,5 +40,9 @@ changelog:
       - '^Merge tag '
       - '^Merge branch '
       - '^bump '
+announce:
+  slack:
+    enabled: true
+    channel: '#duplo-devs'
 release:
   draft: false
