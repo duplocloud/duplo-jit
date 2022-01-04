@@ -33,5 +33,12 @@ checksum:
   algorithm: sha256
 changelog:
   skip: false
+  filters:
+    exclude:
+      - '^\[release\] '
+      - '^\[cicd\] '
+      - '^Merge tag '
+      - '^Merge branch '
+      - '^bump '
 release:
   draft: false
