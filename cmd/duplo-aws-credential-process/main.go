@@ -14,6 +14,7 @@ import (
 
 type AwsConfigOutput struct {
 	Version         int    `json:"Version"`
+	ConsoleUrl      string `json:"ConsoleUrl"`
 	AccessKeyId     string `json:"AccessKeyId"`
 	SecretAccessKey string `json:"SecretAccessKey"`
 	SessionToken    string `json:"SessionToken,omitempty"`
@@ -42,6 +43,7 @@ func outputCreds(creds *duplocloud.AwsJitCredentials) {
 	// Build the resulting credentials to be output.
 	result := AwsConfigOutput{
 		Version:         1,
+		ConsoleUrl:      creds.ConsoleURL,
 		AccessKeyId:     creds.AccessKeyID,
 		SecretAccessKey: creds.SecretAccessKey,
 		SessionToken:    creds.SessionToken,
