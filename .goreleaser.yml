@@ -33,5 +33,16 @@ checksum:
   algorithm: sha256
 changelog:
   skip: false
+  filters:
+    exclude:
+      - '^\[release\] '
+      - '^\[cicd\] '
+      - '^Merge tag '
+      - '^Merge branch '
+      - '^bump '
+announce:
+  slack:
+    enabled: true
+    channel: '#duplo-devs'
 release:
   draft: false
