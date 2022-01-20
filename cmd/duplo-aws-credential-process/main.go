@@ -67,7 +67,7 @@ func main() {
 	// Parse command-line arguments.
 	host := flag.String("host", "", "Duplo API base URL")
 	token := flag.String("token", "", "Duplo API token")
-	admin := flag.Bool("admin", true, "Get admin credentials")
+	admin := flag.Bool("admin", false, "Get admin credentials")
 	tenantID := flag.String("tenant", "", "Get credentials for the given tenant")
 	debug := flag.Bool("debug", false, "Turn on verbose (debugging) output")
 	flag.Parse()
