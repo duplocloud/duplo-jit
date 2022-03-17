@@ -64,7 +64,7 @@ func outputCreds(creds *AwsConfigOutput, cacheKey string) {
 	os.Stdout.WriteString("\n")
 
 	// Cache them as well.
-	if cacheDir != "" && cacheKey != "" {
+	if (noCache == nil || !*noCache) && cacheDir != "" && cacheKey != "" {
 		credsCache := filepath.Join(cacheDir, fmt.Sprintf("%s,aws-creds.json", cacheKey))
 
 		err = os.WriteFile(credsCache, json, 0600)
@@ -78,7 +78,7 @@ func getCachedCredentials(cacheKey string) (creds *AwsConfigOutput) {
 	var cacheFile string
 
 	// Read credentials from the cache.
-	if cacheDir != "" && cacheKey != "" {
+	if (noCache == nil || !*noCache) && cacheDir != "" && cacheKey != "" {
 		cacheFile = filepath.Join(cacheDir, fmt.Sprintf("%s,aws-creds.json", cacheKey))
 
 		bytes, err := os.ReadFile(cacheFile)
@@ -122,6 +122,7 @@ func getCachedCredentials(cacheKey string) (creds *AwsConfigOutput) {
 }
 
 var cacheDir string
+var noCache *bool
 
 func main() {
 
@@ -134,6 +135,7 @@ func main() {
 	admin := flag.Bool("admin", false, "Get admin credentials")
 	tenantID := flag.String("tenant", "", "Get credentials for the given tenant")
 	debug := flag.Bool("debug", false, "Turn on verbose (debugging) output")
+	noCache = flag.Bool("no-cache", false, "Disable caching (not recommended)")
 	flag.Parse()
 
 	// Refuse to call APIs over anything but https://
@@ -153,11 +155,13 @@ func main() {
 	dieIf(err, "invalid arguments")
 
 	// Prepare the cache directory
-	cacheDir, err = os.UserCacheDir()
-	dieIf(err, "cannot find cache directory")
-	cacheDir = filepath.Join(cacheDir, "duplo-aws-credential-process")
-	err = os.MkdirAll(cacheDir, 0700)
-	dieIf(err, "cannot create cache directory")
+	if noCache == nil || !*noCache {
+		cacheDir, err = os.UserCacheDir()
+		dieIf(err, "cannot find cache directory")
+		cacheDir = filepath.Join(cacheDir, "duplo-aws-credential-process")
+		err = os.MkdirAll(cacheDir, 0700)
+		dieIf(err, "cannot create cache directory")
+	}
 
 	// Gather credentials
 	var creds *AwsConfigOutput
