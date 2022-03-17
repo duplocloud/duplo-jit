@@ -33,7 +33,7 @@ func fatal(msg string, err error) {
 	log.Fatalf("%s: %s: %s", os.Args[0], msg, err)
 }
 
-func outputCreds(creds *duplocloud.AwsJitCredentials, cacheKey string) {
+func convertCreds(creds *duplocloud.AwsJitCredentials) *AwsConfigOutput {
 	// Calculate the expiration time.
 	now := time.Now().UTC()
 	validity := creds.Validity
@@ -43,7 +43,7 @@ func outputCreds(creds *duplocloud.AwsJitCredentials, cacheKey string) {
 	expiration := now.Add(time.Duration(validity) * time.Second)
 
 	// Build the resulting credentials to be output.
-	result := AwsConfigOutput{
+	return &AwsConfigOutput{
 		Version:         1,
 		ConsoleUrl:      creds.ConsoleURL,
 		AccessKeyId:     creds.AccessKeyID,
@@ -51,9 +51,12 @@ func outputCreds(creds *duplocloud.AwsJitCredentials, cacheKey string) {
 		SessionToken:    creds.SessionToken,
 		Expiration:      expiration.Format(time.RFC3339),
 	}
+}
+
+func outputCreds(creds *AwsConfigOutput, cacheKey string) {
 
 	// Convert the credentials to JSON
-	json, err := json.Marshal(result)
+	json, err := json.Marshal(creds)
 	dieIf(err, "cannot marshal credentials to JSON")
 
 	// Write them out
@@ -66,13 +69,59 @@ func outputCreds(creds *duplocloud.AwsJitCredentials, cacheKey string) {
 
 		err = os.WriteFile(credsCache, json, 0600)
 		if err != nil {
-			log.Printf("warning: %s: unable to write to credentials cache", credsCache)
+			log.Printf("warning: %s: unable to write to credentials cache", cacheKey)
 		}
 	}
 }
 
+func getCachedCredentials(cacheKey string) (creds *AwsConfigOutput) {
+	var cacheFile string
+
+	// Read credentials from the cache.
+	if cacheDir != "" && cacheKey != "" {
+		cacheFile = filepath.Join(cacheDir, fmt.Sprintf("%s,aws-creds.json", cacheKey))
+
+		bytes, err := os.ReadFile(cacheFile)
+		if err == nil {
+			creds = &AwsConfigOutput{}
+			err = json.Unmarshal(bytes, creds)
+			if err != nil {
+				log.Printf("warning: %s: invalid JSON in credentials cache: %s", cacheKey, err)
+				creds = nil
+			}
+		} else if !errors.Is(err, os.ErrNotExist) {
+			log.Printf("warning: %s: unable to read from credentials cache", cacheKey)
+		}
+	}
+
+	// Check credentials for expiry.
+	if creds != nil {
+		five_minutes_from_now := time.Now().UTC().Add(5 * time.Minute)
+		expiration, err := time.Parse(time.RFC3339, creds.Expiration)
+
+		// Invalid expiration?
+		if err != nil {
+			log.Printf("warning: %s: invalid Expiration time in credentials cache: %s", cacheKey, creds.Expiration)
+			creds = nil
+
+			// Expires in five minutes or less?
+		} else if five_minutes_from_now.After(expiration) {
+			creds = nil
+		}
+
+		// Clear the cache if the creds expired.
+		if creds == nil {
+			err = os.Remove(cacheFile)
+			if err != nil && !errors.Is(err, os.ErrNotExist) {
+				log.Printf("warning: %s: unable to remove from credentials cache", cacheKey)
+			}
+		}
+	}
+
+	return
+}
+
 var cacheDir string
-var cacheKey string
 
 func main() {
 
@@ -111,16 +160,22 @@ func main() {
 	dieIf(err, "cannot create cache directory")
 
 	// Gather credentials
-	var creds *duplocloud.AwsJitCredentials
+	var creds *AwsConfigOutput
+	var cacheKey string
 	if *admin {
 
 		// Build the cache key
 		cacheKey = strings.Join([]string{strings.TrimPrefix(*host, "https://"), "admin"}, ",")
 
-		// Admin: Get the JIT AWS credentials
-		creds, err = client.AdminGetJITAwsCredentials()
-		dieIf(err, "failed to get credentials")
-		outputCreds(creds, cacheKey)
+		// Try to find credentials from the cache.
+		creds = getCachedCredentials(cacheKey)
+
+		// Otherwise, get the credentials from Duplo.
+		if creds == nil {
+			result, err := client.AdminGetJITAwsCredentials()
+			dieIf(err, "failed to get credentials")
+			creds = convertCreds(result)
+		}
 
 	} else if tenantID == nil || *tenantID == "" {
 
@@ -132,16 +187,26 @@ func main() {
 		// Build the cache key.
 		cacheKey = strings.Join([]string{strings.TrimPrefix(*host, "https://"), "tenant", *tenantID}, ",")
 
-		// If it doesn't look like a UUID, get the tenant ID from the name.
-		if len(*tenantID) < 32 {
-			tenant, err := client.GetTenantByNameForUser(*tenantID)
-			dieIf(err, fmt.Sprintf("%s: tenant not found", *tenantID))
-			tenantID = &tenant.TenantID
-		}
+		// Try to find credentials from the cache.
+		creds = getCachedCredentials(cacheKey)
 
-		// Tenant: Get the JIT AWS credentials
-		creds, err = client.TenantGetJITAwsCredentials(*tenantID)
-		dieIf(err, "failed to get credentials")
-		outputCreds(creds, cacheKey)
+		// Otherwise, get the credentials from Duplo.
+		if creds == nil {
+
+			// If it doesn't look like a UUID, get the tenant ID from the name.
+			if len(*tenantID) < 32 {
+				tenant, err := client.GetTenantByNameForUser(*tenantID)
+				dieIf(err, fmt.Sprintf("%s: tenant not found", *tenantID))
+				tenantID = &tenant.TenantID
+			}
+
+			// Tenant: Get the JIT AWS credentials
+			result, err := client.TenantGetJITAwsCredentials(*tenantID)
+			dieIf(err, "failed to get credentials")
+			creds = convertCreds(result)
+		}
 	}
+
+	// Finally, we can output credentials.
+	outputCreds(creds, cacheKey)
 }
