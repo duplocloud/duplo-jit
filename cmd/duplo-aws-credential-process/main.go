@@ -60,7 +60,15 @@ func outputCreds(creds *duplocloud.AwsJitCredentials, cacheKey string) {
 	os.Stdout.Write(json)
 	os.Stdout.WriteString("\n")
 
-	// Cache them as well
+	// Cache them as well.
+	if cacheDir != "" && cacheKey != "" {
+		credsCache := filepath.Join(cacheDir, fmt.Sprintf("%s,aws-creds.json", cacheKey))
+
+		err = os.WriteFile(credsCache, json, 0600)
+		if err != nil {
+			log.Printf("warning: %s: unable to write to credentials cache", credsCache)
+		}
+	}
 }
 
 var cacheDir string
@@ -80,9 +88,11 @@ func main() {
 	flag.Parse()
 
 	// Refuse to call APIs over anything but https://
+	// Trim a trailing slash.
 	if host == nil || !strings.HasPrefix(*host, "https://") {
 		log.Fatalf("%s: %s", os.Args[0], "--host must be present and start with https://")
 	}
+	*host = strings.TrimSuffix(*host, "/")
 
 	// Possibly enable debugging
 	if *debug {
@@ -97,13 +107,15 @@ func main() {
 	cacheDir, err = os.UserCacheDir()
 	dieIf(err, "cannot find cache directory")
 	cacheDir = filepath.Join(cacheDir, "duplo-aws-credential-process")
+	err = os.MkdirAll(cacheDir, 0700)
+	dieIf(err, "cannot create cache directory")
 
 	// Gather credentials
 	var creds *duplocloud.AwsJitCredentials
 	if *admin {
 
 		// Build the cache key
-		cacheKey := strings.Join([]string{strings.TrimPrefix(*host, "https://"), "admin"}, ",")
+		cacheKey = strings.Join([]string{strings.TrimPrefix(*host, "https://"), "admin"}, ",")
 
 		// Admin: Get the JIT AWS credentials
 		creds, err = client.AdminGetJITAwsCredentials()
@@ -118,7 +130,7 @@ func main() {
 	} else {
 
 		// Build the cache key.
-		cacheKey := strings.Join([]string{strings.TrimPrefix(*host, "https://"), "tenant", *tenantID}, ",")
+		cacheKey = strings.Join([]string{strings.TrimPrefix(*host, "https://"), "tenant", *tenantID}, ",")
 
 		// If it doesn't look like a UUID, get the tenant ID from the name.
 		if len(*tenantID) < 32 {
