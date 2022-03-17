@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/duplocloud/duplo-aws-jit/duplocloud"
@@ -31,7 +33,7 @@ func fatal(msg string, err error) {
 	log.Fatalf("%s: %s: %s", os.Args[0], msg, err)
 }
 
-func outputCreds(creds *duplocloud.AwsJitCredentials) {
+func outputCreds(creds *duplocloud.AwsJitCredentials, cacheKey string) {
 	// Calculate the expiration time.
 	now := time.Now().UTC()
 	validity := creds.Validity
@@ -57,7 +59,12 @@ func outputCreds(creds *duplocloud.AwsJitCredentials) {
 	// Write them out
 	os.Stdout.Write(json)
 	os.Stdout.WriteString("\n")
+
+	// Cache them as well
 }
+
+var cacheDir string
+var cacheKey string
 
 func main() {
 
@@ -72,6 +79,11 @@ func main() {
 	debug := flag.Bool("debug", false, "Turn on verbose (debugging) output")
 	flag.Parse()
 
+	// Refuse to call APIs over anything but https://
+	if host == nil || !strings.HasPrefix(*host, "https://") {
+		log.Fatalf("%s: %s", os.Args[0], "--host must be present and start with https://")
+	}
+
 	// Possibly enable debugging
 	if *debug {
 		duplocloud.LogLevel = duplocloud.TRACE
@@ -81,20 +93,32 @@ func main() {
 	client, err := duplocloud.NewClient(*host, *token)
 	dieIf(err, "invalid arguments")
 
+	// Prepare the cache directory
+	cacheDir, err = os.UserCacheDir()
+	dieIf(err, "cannot find cache directory")
+	cacheDir = filepath.Join(cacheDir, "duplo-aws-credential-process")
+
+	// Gather credentials
 	var creds *duplocloud.AwsJitCredentials
 	if *admin {
+
+		// Build the cache key
+		cacheKey := strings.Join([]string{strings.TrimPrefix(*host, "https://"), "admin"}, ",")
 
 		// Admin: Get the JIT AWS credentials
 		creds, err = client.AdminGetJITAwsCredentials()
 		dieIf(err, "failed to get credentials")
-		outputCreds(creds)
+		outputCreds(creds, cacheKey)
 
-	} else if *tenantID == "" {
+	} else if tenantID == nil || *tenantID == "" {
 
 		// Tenant credentials require an additional argument.
 		dieIf(errors.New("must specify --admin or --tenant=NAME or --tenant=ID"), "invalid arguments")
 
 	} else {
+
+		// Build the cache key.
+		cacheKey := strings.Join([]string{strings.TrimPrefix(*host, "https://"), "tenant", *tenantID}, ",")
 
 		// If it doesn't look like a UUID, get the tenant ID from the name.
 		if len(*tenantID) < 32 {
@@ -106,6 +130,6 @@ func main() {
 		// Tenant: Get the JIT AWS credentials
 		creds, err = client.TenantGetJITAwsCredentials(*tenantID)
 		dieIf(err, "failed to get credentials")
-		outputCreds(creds)
+		outputCreds(creds, cacheKey)
 	}
 }
