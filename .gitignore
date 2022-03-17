@@ -10,5 +10,6 @@ terraform.tfstate.*
 .DS_Store
 .terraform.lock.hcl
 *~
-duplo-aws-jit
-duplo-aws-credential-process
+/duplo-aws-jit
+/duplo-aws-credential-process
+/rod-test
