@@ -140,7 +140,7 @@ func tokenViaPost(baseUrl string, localPort int) (string, error) {
 	select {
 	case tokenResult := <-done:
 		return tokenResult.token, tokenResult.err
-	case <-time.After(10 * time.Second):
+	case <-time.After(30 * time.Second):
 		return "", errors.New("timed out")
 	}
 }
