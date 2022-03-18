@@ -15,6 +15,3 @@ all: duplo-aws-credential-process
 
 duplo-aws-credential-process: duplocloud/*.go cmd/duplo-aws-credential-process/*.go
 	go build ./cmd/duplo-aws-credential-process/
-
-rod-test: cmd/rod-test/*.go
-	go build ./cmd/rod-test/

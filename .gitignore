@@ -12,4 +12,3 @@ terraform.tfstate.*
 *~
 /duplo-aws-jit
 /duplo-aws-credential-process
-/rod-test
