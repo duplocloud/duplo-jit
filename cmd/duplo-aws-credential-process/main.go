@@ -108,13 +108,13 @@ func getCachedCredentials(cacheKey string) (creds *AwsConfigOutput) {
 		} else if five_minutes_from_now.After(expiration) {
 			creds = nil
 		}
+	}
 
-		// Clear the cache if the creds expired.
-		if creds == nil {
-			err = os.Remove(cacheFile)
-			if err != nil && !errors.Is(err, os.ErrNotExist) {
-				log.Printf("warning: %s: unable to remove from credentials cache", cacheKey)
-			}
+	// Clear the cache if the creds expired.
+	if creds == nil && cacheFile != "" {
+		err := os.Remove(cacheFile)
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			log.Printf("warning: %s: unable to remove from credentials cache", cacheKey)
 		}
 	}
 
