@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"time"
 
@@ -15,14 +16,20 @@ type tokenResult struct {
 	err   error
 }
 
-func tokenViaPost(baseUrl string, localPort int, timeout time.Duration) (string, error) {
-	url := fmt.Sprintf("%s/app/user/verify-token?localAppName=post-test&localPort=%d", baseUrl, localPort)
+func tokenViaPost(baseUrl string, timeout time.Duration) (string, error) {
 
-	done := make(chan tokenResult)
+	// Create the listener on a random port.
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return "", err
+	}
+
+	// Get the port being listened to.
+	localPort := listener.Addr().(*net.TCPAddr).Port
 
 	// Run the HTTP server on localhost.
+	done := make(chan tokenResult)
 	go func() {
-		addr := fmt.Sprintf("127.0.0.1:%d", localPort)
 		mux := http.NewServeMux()
 
 		mux.HandleFunc("/", func(res http.ResponseWriter, req *http.Request) {
@@ -68,11 +75,12 @@ func tokenViaPost(baseUrl string, localPort int, timeout time.Duration) (string,
 				done <- tokenResult{token: string(bytes), err: err}
 			}
 		})
-		_ = http.ListenAndServe(addr, mux)
+		_ = http.Serve(listener, mux)
 	}()
 
 	// Open the browser.
-	err := open.Run(url)
+	url := fmt.Sprintf("%s/app/user/verify-token?localAppName=post-test&localPort=%d", baseUrl, localPort)
+	err = open.Run(url)
 	if err != nil {
 		return "", err
 	}
@@ -88,7 +96,7 @@ func tokenViaPost(baseUrl string, localPort int, timeout time.Duration) (string,
 
 func mustTokenInteractive(host string) string {
 
-	token, err := tokenViaPost(host, 4201, 180*time.Second)
+	token, err := tokenViaPost(host, 180*time.Second)
 	dieIf(err, "failed to get token from interactive browser session")
 
 	return token
