@@ -79,7 +79,7 @@ func tokenViaPost(baseUrl string, timeout time.Duration) (string, error) {
 	}()
 
 	// Open the browser.
-	url := fmt.Sprintf("%s/app/user/verify-token?localAppName=post-test&localPort=%d", baseUrl, localPort)
+	url := fmt.Sprintf("%s/app/user/verify-token?localAppName=duplo-aws-credential-process&localPort=%d", baseUrl, localPort)
 	err = open.Run(url)
 	if err != nil {
 		return "", err
