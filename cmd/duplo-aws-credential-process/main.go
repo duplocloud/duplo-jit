@@ -65,9 +65,9 @@ func outputCreds(creds *AwsConfigOutput, cacheKey string) {
 
 	// Cache them as well.
 	if (noCache == nil || !*noCache) && cacheDir != "" && cacheKey != "" {
-		credsCache := filepath.Join(cacheDir, fmt.Sprintf("%s,aws-creds.json", cacheKey))
+		cacheFile := filepath.Join(cacheDir, fmt.Sprintf("%s,aws-creds.json", cacheKey))
 
-		err = os.WriteFile(credsCache, json, 0600)
+		err = os.WriteFile(cacheFile, json, 0600)
 		if err != nil {
 			log.Printf("warning: %s: unable to write to credentials cache", cacheKey)
 		}
@@ -142,6 +142,7 @@ var cacheDir string
 var noCache *bool
 
 func main() {
+	var err error
 
 	// Make sure we log to stderr - so we don't disturb the output to be collected by the AWS CLI
 	log.SetOutput(os.Stderr)
@@ -170,7 +171,7 @@ func main() {
 
 	// Prepare the cache directory
 	if noCache == nil || !*noCache {
-		cacheDir, err := os.UserCacheDir()
+		cacheDir, err = os.UserCacheDir()
 		dieIf(err, "cannot find cache directory")
 		cacheDir = filepath.Join(cacheDir, "duplo-aws-credential-process")
 		err = os.MkdirAll(cacheDir, 0700)
