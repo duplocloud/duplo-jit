@@ -79,6 +79,9 @@ func mustDuploClient(host, token string, interactive bool) *duplocloud.Client {
 	return client
 }
 
+var commit string
+var version string
+
 func main() {
 	// Make sure we log to stderr - so we don't disturb the output to be collected by the AWS CLI
 	log.SetOutput(os.Stderr)
@@ -91,7 +94,20 @@ func main() {
 	debug := flag.Bool("debug", false, "Turn on verbose (debugging) output")
 	noCache = flag.Bool("no-cache", false, "Disable caching (not recommended)")
 	interactive := flag.Bool("interactive", false, "Allow getting Duplo credentials via an interactive browser session (experimental)")
+	showVersion := flag.Bool("version", false, "Output version information and exit")
 	flag.Parse()
+
+	// Output version information
+	if *showVersion {
+		if version == "" {
+			version = "(dev build)"
+		}
+		if commit == "" {
+			commit = "(x)"
+		}
+		fmt.Printf("%s version %s (git commit %s)\n", os.Args[0], version, commit)
+		os.Exit(0)
+	}
 
 	// Refuse to call APIs over anything but https://
 	// Trim a trailing slash.
