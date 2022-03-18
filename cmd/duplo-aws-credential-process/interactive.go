@@ -81,9 +81,7 @@ func tokenViaPost(baseUrl string, timeout time.Duration) (string, error) {
 	// Open the browser.
 	url := fmt.Sprintf("%s/app/user/verify-token?localAppName=duplo-aws-credential-process&localPort=%d", baseUrl, localPort)
 	err = open.Run(url)
-	if err != nil {
-		return "", err
-	}
+	dieIf(err, "failed to open interactive browser session")
 
 	// Wait for the token result, and return it.
 	select {
@@ -95,7 +93,6 @@ func tokenViaPost(baseUrl string, timeout time.Duration) (string, error) {
 }
 
 func mustTokenInteractive(host string) string {
-
 	token, err := tokenViaPost(host, 180*time.Second)
 	dieIf(err, "failed to get token from interactive browser session")
 
