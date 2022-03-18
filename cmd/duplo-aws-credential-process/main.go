@@ -62,6 +62,23 @@ func outputCreds(creds *AwsConfigOutput, cacheKey string) {
 	os.Stdout.WriteString("\n")
 }
 
+func mustDuploClient(host, token string, interactive bool) *duplocloud.Client {
+	// Possibly get a token from an interactive process.
+	if token == "" {
+		if !interactive {
+			log.Fatalf("%s: --token not specified and --interactive mode is disabled", os.Args[0])
+		}
+
+		token = mustTokenInteractive(host)
+	}
+
+	// Create the client.
+	client, err := duplocloud.NewClient(host, token)
+	dieIf(err, "invalid arguments")
+
+	return client
+}
+
 var commit string
 var version string
 
@@ -76,6 +93,7 @@ func main() {
 	tenantID := flag.String("tenant", "", "Get credentials for the given tenant")
 	debug := flag.Bool("debug", false, "Turn on verbose (debugging) output")
 	noCache = flag.Bool("no-cache", false, "Disable caching (not recommended)")
+	interactive := flag.Bool("interactive", false, "Allow getting Duplo credentials via an interactive browser session (experimental)")
 	showVersion := flag.Bool("version", false, "Output version information and exit")
 	flag.Parse()
 
@@ -103,10 +121,6 @@ func main() {
 		duplocloud.LogLevel = duplocloud.TRACE
 	}
 
-	// Prepare the connection to the duplo API.
-	client, err := duplocloud.NewClient(*host, *token)
-	dieIf(err, "invalid arguments")
-
 	// Prepare the cache directory
 	mustInitCache()
 
@@ -123,6 +137,7 @@ func main() {
 
 		// Otherwise, get the credentials from Duplo.
 		if creds == nil {
+			client := mustDuploClient(*host, *token, *interactive)
 			result, err := client.AdminGetJITAwsCredentials()
 			dieIf(err, "failed to get credentials")
 			creds = convertCreds(result)
@@ -143,6 +158,7 @@ func main() {
 
 		// Otherwise, get the credentials from Duplo.
 		if creds == nil {
+			client := mustDuploClient(*host, *token, *interactive)
 
 			// If it doesn't look like a UUID, get the tenant ID from the name.
 			if len(*tenantID) < 32 {
