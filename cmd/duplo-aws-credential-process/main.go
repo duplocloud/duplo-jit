@@ -103,7 +103,7 @@ func main() {
 			version = "(dev build)"
 		}
 		if commit == "" {
-			commit = "(x)"
+			commit = "unknown"
 		}
 		fmt.Printf("%s version %s (git commit %s)\n", os.Args[0], version, commit)
 		os.Exit(0)
