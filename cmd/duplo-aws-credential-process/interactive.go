@@ -13,8 +13,8 @@ import (
 )
 
 type TokenResult struct {
-	token string `json:"token"`
-	otp   string `json:"otp,omitempty"`
+	Token string `json:"token"`
+	OTP   string `json:"otp,omitempty"`
 	err   error
 }
 
@@ -52,6 +52,9 @@ func handlerTokenViaPost(baseUrl string, res http.ResponseWriter, req *http.Requ
 			}
 		}
 	}
+
+	// TODO: output any errors to the console
+
 	_, _ = fmt.Fprintf(res, "\"%s\"\n", status)
 
 	return
@@ -79,7 +82,7 @@ func tokenViaPost(baseUrl string, timeout time.Duration) TokenResult {
 
 			// If we are done, send the result to the channel.
 			if completed {
-				done <- TokenResult{token: string(bytes), err: err}
+				done <- TokenResult{Token: string(bytes), err: err}
 			}
 		})
 

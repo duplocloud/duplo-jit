@@ -173,6 +173,9 @@ func (c *Client) doAPI(verb string, apiName string, apiPath string, rp interface
 		logf(TRACE, "%s: cannot build request: %s", apiName, err.Error())
 		return nil
 	}
+	if c.OTP != "" {
+		req.Header.Set("otpcode", c.OTP)
+	}
 
 	// Call the API and get the response.
 	body, httpErr := c.doRequest(req)

@@ -72,7 +72,7 @@ func mustDuploClient(host, token string, interactive bool) *duplocloud.Client {
 		}
 
 		tokenResult := mustTokenInteractive(host)
-		token = tokenResult.token
+		token = tokenResult.Token
 		otp = ""
 	}
 
