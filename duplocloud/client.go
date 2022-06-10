@@ -14,6 +14,7 @@ type Client struct {
 	HTTPClient *http.Client
 	HostURL    string
 	Token      string
+	OTP        string
 }
 
 // NewClient creates a new Duplo API client
@@ -27,6 +28,15 @@ func NewClient(host, token string) (*Client, error) {
 		return &c, nil
 	}
 	return nil, fmt.Errorf("missing config for Duplo 'host' and/or 'token'")
+}
+
+// NewClientWithOtp creates a new Duplo API client with an OTP code
+func NewClientWithOtp(host, token, otp string) (c *Client, err error) {
+	c, err = NewClient(host, token)
+	if err == nil && c != nil && otp != "" {
+		c.OTP = otp
+	}
+	return
 }
 
 type clientError struct {

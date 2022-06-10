@@ -63,17 +63,21 @@ func outputCreds(creds *AwsConfigOutput, cacheKey string) {
 }
 
 func mustDuploClient(host, token string, interactive bool) *duplocloud.Client {
+	otp := ""
+
 	// Possibly get a token from an interactive process.
 	if token == "" {
 		if !interactive {
 			log.Fatalf("%s: --token not specified and --interactive mode is disabled", os.Args[0])
 		}
 
-		token = mustTokenInteractive(host)
+		tokenResult := mustTokenInteractive(host)
+		token = tokenResult.token
+		otp = ""
 	}
 
 	// Create the client.
-	client, err := duplocloud.NewClient(host, token)
+	client, err := duplocloud.NewClientWithOtp(host, token, otp)
 	dieIf(err, "invalid arguments")
 
 	return client
