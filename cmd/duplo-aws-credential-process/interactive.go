@@ -50,9 +50,6 @@ func handlerTokenViaPost(baseUrl string, res http.ResponseWriter, req *http.Requ
 			status = "failed"
 		} else {
 			status = "done"
-			if len(bytes) == 0 {
-				err = errors.New("canceled")
-			}
 		}
 	}
 
@@ -96,10 +93,14 @@ func tokenViaPost(baseUrl string, admin bool, timeout time.Duration) TokenResult
 			// If we are done, send the result to the channel.
 			if completed {
 				rp := TokenResult{}
-				err = json.Unmarshal(bytes, &rp)
-				if err != nil {
-					message := fmt.Sprintf("%s: cannot unmarshal response from JSON: %s", "/v2/callbackWithOtp", err.Error())
-					rp.err = errors.New(message)
+				if len(bytes) == 0 {
+					rp.err = errors.New("canceled")
+				} else {
+					err = json.Unmarshal(bytes, &rp)
+					if err != nil {
+						message := fmt.Sprintf("%s: cannot unmarshal response from JSON: %s", "/v2/callbackWithOtp", err.Error())
+						rp.err = errors.New(message)
+					}
 				}
 				done <- rp
 			}
