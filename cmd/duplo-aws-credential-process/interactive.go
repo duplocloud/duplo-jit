@@ -24,6 +24,9 @@ func handlerTokenViaPost(baseUrl string, res http.ResponseWriter, req *http.Requ
 
 	// Only allow the specified Duplo to give us creds.
 	res.Header().Add("Access-Control-Allow-Origin", baseUrl)
+	res.Header().Add("Access-Control-Allow-Headers", "X-Requested-With")
+	res.Header().Add("Access-Control-Allow-Headers", "Accept")
+	res.Header().Add("Access-Control-Allow-Headers", "Content-Type")
 
 	// A POST means we are done, whether good or bad.
 	if req.Method == "POST" {

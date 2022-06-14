@@ -4,7 +4,7 @@ default: all
 
 .PHONY:
 clean:
-	rm -f duplo-aws-credential-process
+	rm -f duplo-aws-credential-process *.exe
 
 install: all
 	sudo install -o root -m 755 duplo-aws-credential-process /usr/local/bin/duplo-aws-credential-process
