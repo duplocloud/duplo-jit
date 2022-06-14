@@ -62,7 +62,7 @@ func outputCreds(creds *AwsConfigOutput, cacheKey string) {
 	os.Stdout.WriteString("\n")
 }
 
-func mustDuploClient(host, token string, interactive bool) *duplocloud.Client {
+func mustDuploClient(host, token string, interactive, admin bool) *duplocloud.Client {
 	otp := ""
 
 	// Possibly get a token from an interactive process.
@@ -71,7 +71,7 @@ func mustDuploClient(host, token string, interactive bool) *duplocloud.Client {
 			log.Fatalf("%s: --token not specified and --interactive mode is disabled", os.Args[0])
 		}
 
-		tokenResult := mustTokenInteractive(host)
+		tokenResult := mustTokenInteractive(host, admin)
 		token = tokenResult.Token
 		otp = ""
 	}
@@ -141,7 +141,7 @@ func main() {
 
 		// Otherwise, get the credentials from Duplo.
 		if creds == nil {
-			client := mustDuploClient(*host, *token, *interactive)
+			client := mustDuploClient(*host, *token, *interactive, true)
 			result, err := client.AdminGetJITAwsCredentials()
 			dieIf(err, "failed to get credentials")
 			creds = convertCreds(result)
@@ -162,7 +162,7 @@ func main() {
 
 		// Otherwise, get the credentials from Duplo.
 		if creds == nil {
-			client := mustDuploClient(*host, *token, *interactive)
+			client := mustDuploClient(*host, *token, *interactive, false)
 
 			// If it doesn't look like a UUID, get the tenant ID from the name.
 			if len(*tenantID) < 32 {

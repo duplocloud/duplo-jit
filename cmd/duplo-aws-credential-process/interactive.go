@@ -60,7 +60,7 @@ func handlerTokenViaPost(baseUrl string, res http.ResponseWriter, req *http.Requ
 	return
 }
 
-func tokenViaPost(baseUrl string, timeout time.Duration) TokenResult {
+func tokenViaPost(baseUrl string, admin bool, timeout time.Duration) TokenResult {
 
 	// Create the listener on a random port.
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -106,7 +106,11 @@ func tokenViaPost(baseUrl string, timeout time.Duration) TokenResult {
 	}()
 
 	// Open the browser.
-	url := fmt.Sprintf("%s/app/user/verify-token?localAppName=duplo-aws-credential-process&localPort=%d", baseUrl, localPort)
+	adminFlag := ""
+	if admin {
+		adminFlag = "&isAdmin=true"
+	}
+	url := fmt.Sprintf("%s/app/user/verify-token?localAppName=duplo-aws-credential-process&localPort=%d%s", baseUrl, localPort, adminFlag)
 	err = open.Run(url)
 	dieIf(err, "failed to open interactive browser session")
 
@@ -119,8 +123,8 @@ func tokenViaPost(baseUrl string, timeout time.Duration) TokenResult {
 	}
 }
 
-func mustTokenInteractive(host string) (tokenResult TokenResult) {
-	tokenResult = tokenViaPost(host, 180*time.Second)
+func mustTokenInteractive(host string, admin bool) (tokenResult TokenResult) {
+	tokenResult = tokenViaPost(host, admin, 180*time.Second)
 	dieIf(tokenResult.err, "failed to get token from interactive browser session")
 	return
 }
