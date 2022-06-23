@@ -166,7 +166,11 @@ func main() {
 
 			// If it doesn't look like a UUID, get the tenant ID from the name.
 			if len(*tenantID) < 32 {
+                var err error
 				tenant, err := client.GetTenantByNameForUser(*tenantID)
+                if tenant == nil {
+                    err = errors.New("")
+                }
 				dieIf(err, fmt.Sprintf("%s: tenant not found", *tenantID))
 				tenantID = &tenant.TenantID
 			}
