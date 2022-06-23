@@ -94,6 +94,7 @@ func main() {
 	host := flag.String("host", "", "Duplo API base URL")
 	token := flag.String("token", "", "Duplo API token")
 	admin := flag.Bool("admin", false, "Get admin credentials")
+	duploOps := flag.Bool("duplo-ops", false, "Get Duplo operations credentials")
 	tenantID := flag.String("tenant", "", "Get credentials for the given tenant")
 	debug := flag.Bool("debug", false, "Turn on verbose (debugging) output")
 	noCache = flag.Bool("no-cache", false, "Disable caching (not recommended)")
@@ -147,6 +148,22 @@ func main() {
 			creds = convertCreds(result)
 		}
 
+	} else if *duploOps {
+
+		// Build the cache key
+		cacheKey = strings.Join([]string{strings.TrimPrefix(*host, "https://"), "duplo-ops"}, ",")
+
+		// Try to find credentials from the cache.
+		creds = cacheGetAwsConfigOutput(cacheKey)
+
+		// Otherwise, get the credentials from Duplo.
+		if creds == nil {
+			client := mustDuploClient(*host, *token, *interactive, true)
+			result, err := client.AdminAwsGetJitAccess("duplo-ops")
+			dieIf(err, "failed to get credentials")
+			creds = convertCreds(result)
+		}
+
 	} else if tenantID == nil || *tenantID == "" {
 
 		// Tenant credentials require an additional argument.
@@ -166,11 +183,11 @@ func main() {
 
 			// If it doesn't look like a UUID, get the tenant ID from the name.
 			if len(*tenantID) < 32 {
-                var err error
+				var err error
 				tenant, err := client.GetTenantByNameForUser(*tenantID)
-                if tenant == nil {
-                    err = errors.New("")
-                }
+				if tenant == nil {
+					err = errors.New("no such tenant available to your user")
+				}
 				dieIf(err, fmt.Sprintf("%s: tenant not found", *tenantID))
 				tenantID = &tenant.TenantID
 			}
