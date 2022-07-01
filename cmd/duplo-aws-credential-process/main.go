@@ -62,18 +62,22 @@ func outputCreds(creds *AwsConfigOutput, cacheKey string) {
 	os.Stdout.WriteString("\n")
 }
 
-func mustDuploClient(host, token string, interactive bool) *duplocloud.Client {
+func mustDuploClient(host, token string, interactive, admin bool) *duplocloud.Client {
+	otp := ""
+
 	// Possibly get a token from an interactive process.
 	if token == "" {
 		if !interactive {
 			log.Fatalf("%s: --token not specified and --interactive mode is disabled", os.Args[0])
 		}
 
-		token = mustTokenInteractive(host)
+		tokenResult := mustTokenInteractive(host, admin)
+		token = tokenResult.Token
+		otp = tokenResult.OTP
 	}
 
 	// Create the client.
-	client, err := duplocloud.NewClient(host, token)
+	client, err := duplocloud.NewClientWithOtp(host, token, otp)
 	dieIf(err, "invalid arguments")
 
 	return client
@@ -90,6 +94,7 @@ func main() {
 	host := flag.String("host", "", "Duplo API base URL")
 	token := flag.String("token", "", "Duplo API token")
 	admin := flag.Bool("admin", false, "Get admin credentials")
+	duploOps := flag.Bool("duplo-ops", false, "Get Duplo operations credentials")
 	tenantID := flag.String("tenant", "", "Get credentials for the given tenant")
 	debug := flag.Bool("debug", false, "Turn on verbose (debugging) output")
 	noCache = flag.Bool("no-cache", false, "Disable caching (not recommended)")
@@ -103,7 +108,7 @@ func main() {
 			version = "(dev build)"
 		}
 		if commit == "" {
-			commit = "(x)"
+			commit = "unknown"
 		}
 		fmt.Printf("%s version %s (git commit %s)\n", os.Args[0], version, commit)
 		os.Exit(0)
@@ -137,8 +142,24 @@ func main() {
 
 		// Otherwise, get the credentials from Duplo.
 		if creds == nil {
-			client := mustDuploClient(*host, *token, *interactive)
+			client := mustDuploClient(*host, *token, *interactive, true)
 			result, err := client.AdminGetJITAwsCredentials()
+			dieIf(err, "failed to get credentials")
+			creds = convertCreds(result)
+		}
+
+	} else if *duploOps {
+
+		// Build the cache key
+		cacheKey = strings.Join([]string{strings.TrimPrefix(*host, "https://"), "duplo-ops"}, ",")
+
+		// Try to find credentials from the cache.
+		creds = cacheGetAwsConfigOutput(cacheKey)
+
+		// Otherwise, get the credentials from Duplo.
+		if creds == nil {
+			client := mustDuploClient(*host, *token, *interactive, true)
+			result, err := client.AdminAwsGetJitAccess("duplo-ops")
 			dieIf(err, "failed to get credentials")
 			creds = convertCreds(result)
 		}
@@ -158,11 +179,15 @@ func main() {
 
 		// Otherwise, get the credentials from Duplo.
 		if creds == nil {
-			client := mustDuploClient(*host, *token, *interactive)
+			client := mustDuploClient(*host, *token, *interactive, false)
 
 			// If it doesn't look like a UUID, get the tenant ID from the name.
 			if len(*tenantID) < 32 {
+				var err error
 				tenant, err := client.GetTenantByNameForUser(*tenantID)
+				if tenant == nil {
+					err = errors.New("no such tenant available to your user")
+				}
 				dieIf(err, fmt.Sprintf("%s: tenant not found", *tenantID))
 				tenantID = &tenant.TenantID
 			}

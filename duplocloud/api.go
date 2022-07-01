@@ -19,8 +19,33 @@ type UserTenant struct {
 	PlanID      string `json:"PlanID"`
 }
 
-// AdminGetAwsCredentials retrieves just-in-time admin AWS credentials via the Duplo API.
+// AdminAwsGetJitAccess retrieves just-in-time admin AWS credentials for the requested role via the Duplo API.
+func (c *Client) AdminAwsGetJitAccess(role string) (*AwsJitCredentials, ClientError) {
+	creds := AwsJitCredentials{}
+	err := c.getAPI("AdminAwsGetJitAccess()", fmt.Sprintf("v3/admin/aws/jitAccess/%s", role), &creds)
+	if err != nil {
+		return nil, err
+	}
+	return &creds, nil
+}
+
+// AdminGetJITAwsCredentials retrieves just-in-time admin AWS credentials via the Duplo API.
 func (c *Client) AdminGetJITAwsCredentials() (*AwsJitCredentials, ClientError) {
+	creds, err := c.AdminAwsGetJitAccess("admin")
+
+	// Fallback to legacy API
+	if err != nil && err.Status() == 404 {
+		creds, err = c.LegacyAdminGetJITAwsCredentials()
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	return creds, err
+}
+
+// LegacyAdminGetJITAwsCredentials retrieves just-in-time admin AWS credentials via the Duplo API.
+func (c *Client) LegacyAdminGetJITAwsCredentials() (*AwsJitCredentials, ClientError) {
 	creds := AwsJitCredentials{}
 	err := c.getAPI("AdminGetJITAwsCredentials()", "adminproxy/GetJITAwsConsoleAccessUrl", &creds)
 	if err != nil {
@@ -29,7 +54,7 @@ func (c *Client) AdminGetJITAwsCredentials() (*AwsJitCredentials, ClientError) {
 	return &creds, nil
 }
 
-// TenantGetAwsCredentials retrieves just-in-time AWS credentials for a tenant via the Duplo API.
+// TenantGetJITAwsCredentials retrieves just-in-time AWS credentials for a tenant via the Duplo API.
 func (c *Client) TenantGetJITAwsCredentials(tenantID string) (*AwsJitCredentials, ClientError) {
 	creds := AwsJitCredentials{}
 	err := c.getAPI(
