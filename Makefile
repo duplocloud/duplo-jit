@@ -1,4 +1,4 @@
-VERSION=0.4.2
+VERSION=0.5.0
 
 default: all
 
@@ -13,5 +13,5 @@ test: all
 
 all: duplo-aws-credential-process
 
-duplo-aws-credential-process: Makefile duplocloud/*.go cmd/duplo-aws-credential-process/*.go
+duplo-aws-credential-process: Makefile duplocloud/*.go internal/*.go cmd/duplo-aws-credential-process/*.go
 	go build -ldflags "-X main.version=$(VERSION)-dev -X main.commit=$(shell git rev-parse HEAD)" ./cmd/duplo-aws-credential-process/

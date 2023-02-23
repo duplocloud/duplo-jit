@@ -1,4 +1,4 @@
-package main
+package internal
 
 import (
 	"encoding/json"
@@ -11,27 +11,28 @@ import (
 )
 
 var cacheDir string
-var noCache *bool
+var noCache bool
 
-// mustInitCache initializes the cacheDir or panics.
-func mustInitCache() {
+// MustInitCache initializes the cacheDir or panics.
+func MustInitCache(cmd string, disabled bool) {
 	var err error
 
-	if *noCache {
+	noCache := disabled
+	if noCache {
 		return
 	}
 
 	cacheDir, err = os.UserCacheDir()
-	dieIf(err, "cannot find cache directory")
-	cacheDir = filepath.Join(cacheDir, "duplo-aws-credential-process")
+	DieIf(err, "cannot find cache directory")
+	cacheDir = filepath.Join(cacheDir, cmd)
 	err = os.MkdirAll(cacheDir, 0700)
-	dieIf(err, "cannot create cache directory")
+	DieIf(err, "cannot create cache directory")
 }
 
 // cacheReadUnmarshal reads JSON and unmarshals into the target, returning true on success.
 func cacheReadUnmarshal(file string, target interface{}) bool {
 
-	if !*noCache && cacheDir != "" {
+	if !noCache && cacheDir != "" {
 		file = filepath.Join(cacheDir, file)
 		bytes, err := os.ReadFile(file)
 
@@ -56,10 +57,10 @@ func cacheWriteMustMarshal(file string, source interface{}) []byte {
 
 	// Convert the source to JSON
 	json, err := json.Marshal(source)
-	dieIf(err, "cannot marshal to JSON")
+	DieIf(err, "cannot marshal to JSON")
 
 	// Cache the JSON
-	if !*noCache {
+	if !noCache {
 		file = filepath.Join(cacheDir, file)
 
 		err = os.WriteFile(file, json, 0600)
@@ -71,12 +72,12 @@ func cacheWriteMustMarshal(file string, source interface{}) []byte {
 	return json
 }
 
-// cacheGetAwsConfigOutput tries to read prior AWS creds fromt the cache.
-func cacheGetAwsConfigOutput(cacheKey string) (creds *AwsConfigOutput) {
+// CacheGetAwsConfigOutput tries to read prior AWS creds fromt the cache.
+func CacheGetAwsConfigOutput(cacheKey string) (creds *AwsConfigOutput) {
 	var file string
 
 	// Read credentials from the cache.
-	if !*noCache {
+	if !noCache {
 		file = fmt.Sprintf("%s,aws-creds.json", cacheKey)
 		creds = &AwsConfigOutput{}
 		if !cacheReadUnmarshal(file, creds) {
