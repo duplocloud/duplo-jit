@@ -1,4 +1,5 @@
 *.exe
+dist/
 .idea/
 *.log
 test/
