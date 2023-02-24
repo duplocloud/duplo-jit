@@ -1,4 +1,5 @@
 *.exe
+dist/
 .idea/
 *.log
 test/
@@ -11,5 +12,6 @@ terraform.tfstate.*
 .DS_Store
 .terraform.lock.hcl
 *~
+/duplo-jit
 /duplo-aws-jit
 /duplo-aws-credential-process
