@@ -1,6 +1,9 @@
 package duplocloud
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 // DuploSystemFeatures represents configured features in the system
 type DuploSystemFeatures struct {
@@ -29,14 +32,14 @@ type DuploSystemFeatures struct {
 
 // DuploPlanK8ClusterConfig represents a k8s system configuration
 type DuploPlanK8ClusterConfig struct {
-	Name                           string `json:"Name,omitempty"`
-	ApiServer                      string `json:"ApiServer,omitempty"`
-	Token                          string `json:"Token,omitempty"`
-	TokenValidity                  int    `json:"Validity,omitempty"`
-	K8Provider                     int    `json:"K8Provider,omitempty"`
-	AwsRegion                      string `json:"AwsRegion,omitempty"`
-	K8sVersion                     string `json:"K8sVersion,omitempty"`
-	CertificateAuthorityDataBase64 string `json:"CertificateAuthorityDataBase64,omitempty"`
+	Name                           string     `json:"Name,omitempty"`
+	ApiServer                      string     `json:"ApiServer,omitempty"`
+	Token                          string     `json:"Token,omitempty"`
+	K8Provider                     int        `json:"K8Provider,omitempty"`
+	AwsRegion                      string     `json:"AwsRegion,omitempty"`
+	K8sVersion                     string     `json:"K8sVersion,omitempty"`
+	CertificateAuthorityDataBase64 string     `json:"CertificateAuthorityDataBase64,omitempty"`
+	LastTokenRefreshTime           *time.Time `json:"LastTokenRefreshTime,omitempty"`
 }
 
 // AwsJitCredentials represents just-in-time AWS credentials from Duplo
@@ -81,7 +84,7 @@ func (c *Client) AdminGetK8sJitAccess(plan string) (*DuploPlanK8ClusterConfig, C
 	creds := DuploPlanK8ClusterConfig{}
 	err := c.getAPI(
 		fmt.Sprintf("AdminGetK8sJitAccess(%s)", plan),
-		fmt.Sprintf("v3/admin/plans/%s/k8sJitAccess", plan),
+		fmt.Sprintf("v3/admin/plans/%s/k8sConfig", plan),
 		&creds,
 	)
 	if err != nil {
