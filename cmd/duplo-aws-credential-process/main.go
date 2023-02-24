@@ -135,11 +135,11 @@ func main() {
 			if len(*tenantID) < 32 {
 				var err error
 				tenant, err := client.GetTenantByNameForUser(*tenantID)
-				if tenant == nil {
-					err = errors.New("no such tenant available to your user")
+				if tenant == nil || err != nil {
+					internal.Fatal(fmt.Sprintf("%s: tenant missing or not allowed", *tenantID), err)
+				} else {
+					tenantID = &tenant.TenantID
 				}
-				internal.DieIf(err, fmt.Sprintf("%s: tenant not found", *tenantID))
-				tenantID = &tenant.TenantID
 			}
 
 			// Tenant: Get the JIT AWS credentials
