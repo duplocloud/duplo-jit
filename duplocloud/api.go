@@ -27,6 +27,18 @@ type DuploSystemFeatures struct {
 	TenantNameMaxLength   int    `json:"TenantNameMaxLength"`
 }
 
+// DuploPlanK8ClusterConfig represents a k8s system configuration
+type DuploPlanK8ClusterConfig struct {
+	Name                           string `json:"Name,omitempty"`
+	ApiServer                      string `json:"ApiServer,omitempty"`
+	Token                          string `json:"Token,omitempty"`
+	TokenValidity                  int    `json:"Validity,omitempty"`
+	K8Provider                     int    `json:"K8Provider,omitempty"`
+	AwsRegion                      string `json:"AwsRegion,omitempty"`
+	K8sVersion                     string `json:"K8sVersion,omitempty"`
+	CertificateAuthorityDataBase64 string `json:"CertificateAuthorityDataBase64,omitempty"`
+}
+
 // AwsJitCredentials represents just-in-time AWS credentials from Duplo
 type AwsJitCredentials struct {
 	ConsoleURL      string `json:"ConsoleUrl,omitempty"`
@@ -64,29 +76,23 @@ func (c *Client) AdminAwsGetJitAccess(role string) (*AwsJitCredentials, ClientEr
 	return &creds, nil
 }
 
-// AdminGetJITAwsCredentials retrieves just-in-time admin AWS credentials via the Duplo API.
-func (c *Client) AdminGetJITAwsCredentials() (*AwsJitCredentials, ClientError) {
-	creds, err := c.AdminAwsGetJitAccess("admin")
-
-	// Fallback to legacy API
-	if err != nil && err.Status() == 404 {
-		creds, err = c.LegacyAdminGetJITAwsCredentials()
-	}
-
-	if err != nil {
-		return nil, err
-	}
-	return creds, err
-}
-
-// LegacyAdminGetJITAwsCredentials retrieves just-in-time admin AWS credentials via the Duplo API.
-func (c *Client) LegacyAdminGetJITAwsCredentials() (*AwsJitCredentials, ClientError) {
-	creds := AwsJitCredentials{}
-	err := c.getAPI("AdminGetJITAwsCredentials()", "adminproxy/GetJITAwsConsoleAccessUrl", &creds)
+// AdminGetK8sJitAccess retrieves just-in-time admin AWS credentials for the requested role via the Duplo API.
+func (c *Client) AdminGetK8sJitAccess(plan string) (*DuploPlanK8ClusterConfig, ClientError) {
+	creds := DuploPlanK8ClusterConfig{}
+	err := c.getAPI(
+		fmt.Sprintf("AdminGetK8sJitAccess(%s)", plan),
+		fmt.Sprintf("v3/admin/plans/%s/k8sJitAccess", plan),
+		&creds,
+	)
 	if err != nil {
 		return nil, err
 	}
 	return &creds, nil
+}
+
+// AdminGetJITAwsCredentials retrieves just-in-time admin AWS credentials via the Duplo API.
+func (c *Client) AdminGetJITAwsCredentials() (*AwsJitCredentials, ClientError) {
+	return c.AdminAwsGetJitAccess("admin")
 }
 
 // TenantGetJITAwsCredentials retrieves just-in-time AWS credentials for a tenant via the Duplo API.
@@ -95,6 +101,20 @@ func (c *Client) TenantGetJITAwsCredentials(tenantID string) (*AwsJitCredentials
 	err := c.getAPI(
 		fmt.Sprintf("TenantGetAwsCredentials(%s)", tenantID),
 		fmt.Sprintf("subscriptions/%s/GetAwsConsoleTokenUrl", tenantID),
+		&creds,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &creds, nil
+}
+
+// TenantGetK8sJitAccess retrieves just-in-time admin AWS credentials for the requested role via the Duplo API.
+func (c *Client) TenantGetK8sJitAccess(tenantID string) (*DuploPlanK8ClusterConfig, ClientError) {
+	creds := DuploPlanK8ClusterConfig{}
+	err := c.getAPI(
+		fmt.Sprintf("TenantGetK8sJitAccess(%s)", tenantID),
+		fmt.Sprintf("v3/subscriptions/%s/k8s/jitAccess", tenantID),
 		&creds,
 	)
 	if err != nil {

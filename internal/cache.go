@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/duplocloud/duplo-aws-jit/duplocloud"
+	clientauthv1beta1 "k8s.io/client-go/pkg/apis/clientauthentication/v1beta1"
 )
 
 var cacheDir string
@@ -142,6 +143,41 @@ func CacheGetDuploOutput(cacheKey string, host string) (creds *DuploCredsOutput)
 
 		// If we have any errors, assume that the credentials have expired
 		if err != nil {
+			creds = nil
+		}
+	}
+
+	// Clear the cache if the creds expired.
+	if creds == nil && file != "" {
+		err := os.Remove(file)
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			log.Printf("warning: %s: unable to remove from credentials cache", cacheKey)
+		}
+	}
+
+	return
+}
+
+// CacheGetAwsConfigOutput tries to read prior K8s creds from the cache.
+func CacheGetK8sConfigOutput(cacheKey string) (creds *clientauthv1beta1.ExecCredential) {
+	var file string
+
+	// Read credentials from the cache.
+	if !noCache {
+		file = fmt.Sprintf("%s,k8s-creds.json", cacheKey)
+		creds = &clientauthv1beta1.ExecCredential{}
+		if !cacheReadUnmarshal(file, creds) {
+			creds = nil
+		}
+	}
+
+	// Check credentials for expiry.
+	if creds != nil {
+		five_minutes_from_now := time.Now().UTC().Add(5 * time.Minute)
+		expiration := creds.Status.ExpirationTimestamp.Time
+
+		// Expires in five minutes or less?
+		if five_minutes_from_now.After(expiration) {
 			creds = nil
 		}
 	}
