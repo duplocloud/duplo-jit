@@ -1,5 +1,5 @@
-# duplo-aws-jit
-Command-line tools for JIT AWS access
+# duplo-jit
+Command-line tools for JIT Duplo, AWS and Kubernetes access
 
 --help
 ```
