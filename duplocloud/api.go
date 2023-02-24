@@ -81,7 +81,7 @@ func (c *Client) AdminGetK8sJitAccess(plan string) (*DuploPlanK8ClusterConfig, C
 	creds := DuploPlanK8ClusterConfig{}
 	err := c.getAPI(
 		fmt.Sprintf("AdminGetK8sJitAccess(%s)", plan),
-		fmt.Sprintf("v3/admin/plans/%s/k8sJitAccess", plan),
+		fmt.Sprintf("v3/admin/plans/%s/k8sConfig", plan),
 		&creds,
 	)
 	if err != nil {
