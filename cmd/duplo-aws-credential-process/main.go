@@ -48,7 +48,7 @@ func main() {
 	tenantID := flag.String("tenant", "", "Get credentials for the given tenant")
 	debug := flag.Bool("debug", false, "Turn on verbose (debugging) output")
 	noCache := flag.Bool("no-cache", false, "Disable caching (not recommended)")
-	interactive := flag.Bool("interactive", false, "Allow getting Duplo credentials via an interactive browser session (experimental)")
+	interactive := flag.Bool("interactive", false, "Allow getting Duplo credentials via an interactive browser session")
 	showVersion := flag.Bool("version", false, "Output version information and exit")
 	flag.Parse()
 
