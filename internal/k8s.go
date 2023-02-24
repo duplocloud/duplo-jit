@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/duplocloud/duplo-aws-jit/duplocloud"
+	"github.com/duplocloud/duplo-jit/duplocloud"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientauthv1beta1 "k8s.io/client-go/pkg/apis/clientauthentication/v1beta1"

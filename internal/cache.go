@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/duplocloud/duplo-aws-jit/duplocloud"
+	"github.com/duplocloud/duplo-jit/duplocloud"
 	clientauthv1beta1 "k8s.io/client-go/pkg/apis/clientauthentication/v1beta1"
 )
 

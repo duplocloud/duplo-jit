@@ -8,8 +8,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/duplocloud/duplo-aws-jit/duplocloud"
-	"github.com/duplocloud/duplo-aws-jit/internal"
+	"github.com/duplocloud/duplo-jit/duplocloud"
+	"github.com/duplocloud/duplo-jit/internal"
 )
 
 func mustDuploClient(host, token string, interactive, admin bool) *duplocloud.Client {

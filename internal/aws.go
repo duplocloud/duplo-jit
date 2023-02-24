@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/duplocloud/duplo-aws-jit/duplocloud"
+	"github.com/duplocloud/duplo-jit/duplocloud"
 )
 
 type AwsConfigOutput struct {

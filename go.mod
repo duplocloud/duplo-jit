@@ -1,4 +1,4 @@
-module github.com/duplocloud/duplo-aws-jit
+module github.com/duplocloud/duplo-jit
 
 go 1.16
 

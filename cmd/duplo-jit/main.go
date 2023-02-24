@@ -8,8 +8,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/duplocloud/duplo-aws-jit/duplocloud"
-	"github.com/duplocloud/duplo-aws-jit/internal"
+	"github.com/duplocloud/duplo-jit/duplocloud"
+	"github.com/duplocloud/duplo-jit/internal"
 	clientauthv1beta1 "k8s.io/client-go/pkg/apis/clientauthentication/v1beta1"
 )
 
