@@ -2,6 +2,31 @@ package duplocloud
 
 import "fmt"
 
+// DuploSystemFeatures represents configured features in the system
+type DuploSystemFeatures struct {
+	IsKatkitEnabled      bool     `json:"IsKatkitEnabled"`
+	IsSignupEnabled      bool     `json:"IsSignupEnabled"`
+	IsComplianceEnabled  bool     `json:"IsComplianceEnabled"`
+	IsBillingEnabled     bool     `json:"IsBillingEnabled"`
+	IsSiemEnabled        bool     `json:"IsSiemEnabled"`
+	IsAwsCloudEnabled    bool     `json:"IsAwsCloudEnabled"`
+	AwsRegions           []string `json:"AwsRegions"`
+	DefaultAwsAccount    string   `json:"DefaultAwsAccount"`
+	DefaultAwsRegion     string   `json:"DefaultAwsRegion"`
+	IsAzureCloudEnabled  bool     `json:"IsAzureCloudEnabled"`
+	AzureRegions         []string `json:"AzureRegions"`
+	IsGoogleCloudEnabled bool     `json:"IsGoogleCloudEnabled"`
+	EksVersions          struct {
+		DefaultVersion    string   `json:"DefaultVersion"`
+		SupportedVersions []string `json:"SupportedVersions"`
+	} `json:"EksVersions"`
+	IsOtpNeeded           bool   `json:"IsOtpNeeded"`
+	IsAwsAdminJITEnabled  bool   `json:"IsAwsAdminJITEnabled"`
+	IsDuploOpsEnabled     bool   `json:"IsDuploOpsEnabled"`
+	DevopsManagerHostname string `json:"DevopsManagerHostname"`
+	TenantNameMaxLength   int    `json:"TenantNameMaxLength"`
+}
+
 // AwsJitCredentials represents just-in-time AWS credentials from Duplo
 type AwsJitCredentials struct {
 	ConsoleURL      string `json:"ConsoleUrl,omitempty"`
@@ -17,6 +42,16 @@ type UserTenant struct {
 	TenantID    string `json:"TenantId,omitempty"`
 	AccountName string `json:"AccountName"`
 	PlanID      string `json:"PlanID"`
+}
+
+// FeaturesSystem retrieves the configured system features.
+func (c *Client) FeaturesSystem() (*DuploSystemFeatures, ClientError) {
+	features := DuploSystemFeatures{}
+	err := c.getAPI("FeaturesSystem()", "v3/features/system", &features)
+	if err != nil {
+		return nil, err
+	}
+	return &features, nil
 }
 
 // AdminAwsGetJitAccess retrieves just-in-time admin AWS credentials for the requested role via the Duplo API.

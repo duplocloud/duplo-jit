@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/duplocloud/duplo-aws-jit/duplocloud"
 )
 
 var cacheDir string
@@ -72,7 +74,7 @@ func cacheWriteMustMarshal(file string, source interface{}) []byte {
 	return json
 }
 
-// CacheGetAwsConfigOutput tries to read prior AWS creds fromt the cache.
+// CacheGetAwsConfigOutput tries to read prior AWS creds from the cache.
 func CacheGetAwsConfigOutput(cacheKey string) (creds *AwsConfigOutput) {
 	var file string
 
@@ -97,6 +99,49 @@ func CacheGetAwsConfigOutput(cacheKey string) (creds *AwsConfigOutput) {
 
 			// Expires in five minutes or less?
 		} else if five_minutes_from_now.After(expiration) {
+			creds = nil
+		}
+	}
+
+	// Clear the cache if the creds expired.
+	if creds == nil && file != "" {
+		err := os.Remove(file)
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			log.Printf("warning: %s: unable to remove from credentials cache", cacheKey)
+		}
+	}
+
+	return
+}
+
+// CacheGetDuploOutput tries to read prior AWS creds from the cache.
+func CacheGetDuploOutput(cacheKey string, host string) (creds *DuploCredsOutput) {
+	var file string
+
+	// Read credentials from the cache.
+	if !noCache {
+		file = fmt.Sprintf("%s,duplo-creds.json", cacheKey)
+		creds = &DuploCredsOutput{}
+		if !cacheReadUnmarshal(file, creds) {
+			creds = nil
+		}
+	}
+
+	// Check credentials for expiry - by trying to retrieve system features
+	if creds != nil {
+
+		// Retrieve system features.
+		client, err := duplocloud.NewClient(host, creds.DuploToken)
+		if err == nil {
+			var features *duplocloud.DuploSystemFeatures
+			features, err = client.FeaturesSystem()
+			if features != nil {
+				creds.NeedOTP = features.IsOtpNeeded
+			}
+		}
+
+		// If we have any errors, assume that the credentials have expired
+		if err != nil {
 			creds = nil
 		}
 	}

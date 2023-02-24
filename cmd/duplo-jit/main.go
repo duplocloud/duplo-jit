@@ -12,27 +12,6 @@ import (
 	"github.com/duplocloud/duplo-aws-jit/internal"
 )
 
-func mustDuploClient(host, token string, interactive, admin bool) *duplocloud.Client {
-	otp := ""
-
-	// Possibly get a token from an interactive process.
-	if token == "" {
-		if !interactive {
-			log.Fatalf("%s: --token not specified and --interactive mode is disabled", os.Args[0])
-		}
-
-		tokenResult := internal.MustTokenInteractive(host, admin, "duplo-jit")
-		token = tokenResult.Token
-		otp = tokenResult.OTP
-	}
-
-	// Create the client.
-	client, err := duplocloud.NewClientWithOtp(host, token, otp)
-	internal.DieIf(err, "invalid arguments")
-
-	return client
-}
-
 var commit string
 var version string
 
@@ -72,7 +51,7 @@ func main() {
 		}
 		fmt.Printf("%s version %s (git commit %s)\n", os.Args[0], version, commit)
 		os.Exit(0)
-	} else if cmd != "aws" {
+	} else if cmd != "aws" && cmd != "duplo" {
 		fmt.Printf("%s: %s: subcommand not yet implemented\n", os.Args[0], cmd)
 		os.Exit(0)
 	}
@@ -93,75 +72,82 @@ func main() {
 	internal.MustInitCache("duplo-jit", *noCache)
 
 	// Get AWS credentials and output them
-	var creds *internal.AwsConfigOutput
-	var cacheKey string
-	if *admin {
+	switch cmd {
+	case "aws":
+		var creds *internal.AwsConfigOutput
+		var cacheKey string
+		if *admin {
 
-		// Build the cache key
-		cacheKey = strings.Join([]string{strings.TrimPrefix(*host, "https://"), "admin"}, ",")
+			// Build the cache key
+			cacheKey = strings.Join([]string{strings.TrimPrefix(*host, "https://"), "admin"}, ",")
 
-		// Try to find credentials from the cache.
-		creds = internal.CacheGetAwsConfigOutput(cacheKey)
+			// Try to find credentials from the cache.
+			creds = internal.CacheGetAwsConfigOutput(cacheKey)
 
-		// Otherwise, get the credentials from Duplo.
-		if creds == nil {
-			client := mustDuploClient(*host, *token, *interactive, true)
-			result, err := client.AdminGetJITAwsCredentials()
-			internal.DieIf(err, "failed to get credentials")
-			creds = internal.ConvertAwsCreds(result)
-		}
-
-	} else if *duploOps {
-
-		// Build the cache key
-		cacheKey = strings.Join([]string{strings.TrimPrefix(*host, "https://"), "duplo-ops"}, ",")
-
-		// Try to find credentials from the cache.
-		creds = internal.CacheGetAwsConfigOutput(cacheKey)
-
-		// Otherwise, get the credentials from Duplo.
-		if creds == nil {
-			client := mustDuploClient(*host, *token, *interactive, true)
-			result, err := client.AdminAwsGetJitAccess("duplo-ops")
-			internal.DieIf(err, "failed to get credentials")
-			creds = internal.ConvertAwsCreds(result)
-		}
-
-	} else if tenantID == nil || *tenantID == "" {
-
-		// Tenant credentials require an additional argument.
-		internal.DieIf(errors.New("must specify --admin or --tenant=NAME or --tenant=ID"), "invalid arguments")
-
-	} else {
-
-		// Build the cache key.
-		cacheKey = strings.Join([]string{strings.TrimPrefix(*host, "https://"), "tenant", *tenantID}, ",")
-
-		// Try to find credentials from the cache.
-		creds = internal.CacheGetAwsConfigOutput(cacheKey)
-
-		// Otherwise, get the credentials from Duplo.
-		if creds == nil {
-			client := mustDuploClient(*host, *token, *interactive, false)
-
-			// If it doesn't look like a UUID, get the tenant ID from the name.
-			if len(*tenantID) < 32 {
-				var err error
-				tenant, err := client.GetTenantByNameForUser(*tenantID)
-				if tenant == nil {
-					err = errors.New("no such tenant available to your user")
-				}
-				internal.DieIf(err, fmt.Sprintf("%s: tenant not found", *tenantID))
-				tenantID = &tenant.TenantID
+			// Otherwise, get the credentials from Duplo.
+			if creds == nil {
+				client, _ := internal.MustDuploClient(*host, *token, *interactive, true)
+				result, err := client.AdminGetJITAwsCredentials()
+				internal.DieIf(err, "failed to get credentials")
+				creds = internal.ConvertAwsCreds(result)
 			}
 
-			// Tenant: Get the JIT AWS credentials
-			result, err := client.TenantGetJITAwsCredentials(*tenantID)
-			internal.DieIf(err, "failed to get credentials")
-			creds = internal.ConvertAwsCreds(result)
-		}
-	}
+		} else if *duploOps {
 
-	// Finally, we can output credentials.
-	internal.OutputAwsCreds(creds, cacheKey)
+			// Build the cache key
+			cacheKey = strings.Join([]string{strings.TrimPrefix(*host, "https://"), "duplo-ops"}, ",")
+
+			// Try to find credentials from the cache.
+			creds = internal.CacheGetAwsConfigOutput(cacheKey)
+
+			// Otherwise, get the credentials from Duplo.
+			if creds == nil {
+				client, _ := internal.MustDuploClient(*host, *token, *interactive, true)
+				result, err := client.AdminAwsGetJitAccess("duplo-ops")
+				internal.DieIf(err, "failed to get credentials")
+				creds = internal.ConvertAwsCreds(result)
+			}
+
+		} else if tenantID == nil || *tenantID == "" {
+
+			// Tenant credentials require an additional argument.
+			internal.DieIf(errors.New("must specify --admin or --tenant=NAME or --tenant=ID"), "invalid arguments")
+
+		} else {
+
+			// Build the cache key.
+			cacheKey = strings.Join([]string{strings.TrimPrefix(*host, "https://"), "tenant", *tenantID}, ",")
+
+			// Try to find credentials from the cache.
+			creds = internal.CacheGetAwsConfigOutput(cacheKey)
+
+			// Otherwise, get the credentials from Duplo.
+			if creds == nil {
+				client, _ := internal.MustDuploClient(*host, *token, *interactive, false)
+
+				// If it doesn't look like a UUID, get the tenant ID from the name.
+				if len(*tenantID) < 32 {
+					var err error
+					tenant, err := client.GetTenantByNameForUser(*tenantID)
+					if tenant == nil {
+						err = errors.New("no such tenant available to your user")
+					}
+					internal.DieIf(err, fmt.Sprintf("%s: tenant not found", *tenantID))
+					tenantID = &tenant.TenantID
+				}
+
+				// Tenant: Get the JIT AWS credentials
+				result, err := client.TenantGetJITAwsCredentials(*tenantID)
+				internal.DieIf(err, "failed to get credentials")
+				creds = internal.ConvertAwsCreds(result)
+			}
+		}
+
+		// Finally, we can output credentials.
+		internal.OutputAwsCreds(creds, cacheKey)
+
+	case "duplo":
+		_, creds := internal.MustDuploClient(*host, *token, *interactive, true)
+		internal.OutputDuploCreds(creds)
+	}
 }
