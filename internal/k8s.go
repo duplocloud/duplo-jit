@@ -13,8 +13,6 @@ import (
 )
 
 func ConvertK8sCreds(creds *duplocloud.DuploPlanK8ClusterConfig) *clientauthv1beta1.ExecCredential {
-	now := time.Now()
-
 	// Populate cluster info.
 	cluster := clientauthv1beta1.Cluster{Server: creds.ApiServer}
 
@@ -31,13 +29,15 @@ func ConvertK8sCreds(creds *duplocloud.DuploPlanK8ClusterConfig) *clientauthv1be
 	status := clientauthv1beta1.ExecCredentialStatus{Token: creds.Token}
 
 	// Populate expiration time.
-	validity := creds.TokenValidity
-	if validity <= 0 {
-		validity = 3600 // default is one hour
+	var expiration time.Time
+	if creds.LastTokenRefreshTime != nil {
+		expiration = *creds.LastTokenRefreshTime
+
+		// Default expiration time: 55 minutes
+	} else {
+		expiration = time.Now().Add(time.Duration(60*55) * time.Second)
 	}
-	status.ExpirationTimestamp = &v1.Time{
-		Time: now.Add(time.Duration(validity) * time.Second),
-	}
+	status.ExpirationTimestamp = &v1.Time{Time: expiration}
 
 	return &clientauthv1beta1.ExecCredential{
 		TypeMeta: v1.TypeMeta{
