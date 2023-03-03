@@ -20,7 +20,7 @@ type DuploCredsOutput struct {
 func duploClientAndOtpFlag(host, token, otp string, admin bool) (*duplocloud.Client, bool) {
 	client, err := duplocloud.NewClientWithOtp(host, token, otp)
 	DieIf(err, "invalid arguments")
-	features, err := client.FeaturesSystem()
+	features, err := client.FeaturesSystem() // this API call is doubling as a system "ping"
 
 	// Is the token invalid?
 	if err != nil {
