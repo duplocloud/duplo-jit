@@ -73,6 +73,17 @@ func cacheWriteMustMarshal(file string, source interface{}) []byte {
 	return json
 }
 
+func cacheRemoveEntry(cacheKey, cacheType string) {
+	cacheRemoveFile(cacheKey, fmt.Sprintf("%s,%s-creds.json", cacheKey, cacheType))
+}
+
+func cacheRemoveFile(cacheKey, file string) {
+	err := os.Remove(filepath.Join(cacheDir, file))
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		log.Printf("warning: %s: unable to remove from credentials cache", cacheKey)
+	}
+}
+
 // CacheGetAwsConfigOutput tries to read prior AWS creds from the cache.
 func CacheGetAwsConfigOutput(cacheKey string) (creds *AwsConfigOutput) {
 	var file string
@@ -103,10 +114,7 @@ func CacheGetAwsConfigOutput(cacheKey string) (creds *AwsConfigOutput) {
 
 		// Clear the cache if the creds expired.
 		if creds == nil {
-			err := os.Remove(filepath.Join(cacheDir, file))
-			if err != nil && !errors.Is(err, os.ErrNotExist) {
-				log.Printf("warning: %s: unable to remove from credentials cache", cacheKey)
-			}
+			cacheRemoveFile(cacheKey, file)
 		}
 	}
 
@@ -146,10 +154,7 @@ func CacheGetDuploOutput(cacheKey string, host string) (creds *DuploCredsOutput)
 
 		// Clear the cache if the creds expired.
 		if creds == nil {
-			err := os.Remove(filepath.Join(cacheDir, file))
-			if err != nil && !errors.Is(err, os.ErrNotExist) {
-				log.Printf("warning: %s: unable to remove from credentials cache", cacheKey)
-			}
+			cacheRemoveFile(cacheKey, file)
 		}
 	}
 
@@ -181,10 +186,7 @@ func CacheGetK8sConfigOutput(cacheKey string) (creds *clientauthv1beta1.ExecCred
 
 		// Clear the cache if the creds expired.
 		if creds == nil {
-			err := os.Remove(filepath.Join(cacheDir, file))
-			if err != nil && !errors.Is(err, os.ErrNotExist) {
-				log.Printf("warning: %s: unable to remove from credentials cache", cacheKey)
-			}
+			cacheRemoveFile(cacheKey, file)
 		}
 	}
 
