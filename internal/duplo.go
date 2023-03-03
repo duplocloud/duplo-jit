@@ -16,61 +16,102 @@ type DuploCredsOutput struct {
 	NeedOTP    bool   `json:"NeedOTP"`
 }
 
+// duploClientAndOtpFlag returns a duplo client if and only if the token is valid and OTP is not needed.
+func duploClientAndOtpFlag(host, token, otp string, admin bool) (*duplocloud.Client, bool) {
+	client, err := duplocloud.NewClientWithOtp(host, token, otp)
+	DieIf(err, "invalid arguments")
+	features, err := client.FeaturesSystem()
+
+	// Is the token invalid?
+	if err != nil {
+		return nil, false
+	}
+
+	// Do we need to retrieve a OTP?
+	if admin && features.IsOtpNeeded && otp == "" {
+		return nil, true
+	}
+
+	// Otherwise, the client is usable.
+	return client, false
+}
+
+// MustDuploClient retrieves a duplo client (and credentials) or panics.
 func MustDuploClient(host, token string, interactive, admin bool) (client *duplocloud.Client, creds *DuploCredsOutput) {
-	var err error
-	otp := ""
+	needsOtp := false
+	cacheKey := strings.TrimPrefix(host, "https://")
 
-	// Possibly get a token from an interactive process.
-	if token == "" {
-		if !interactive {
-			log.Fatalf("%s: --token not specified and --interactive mode is disabled", os.Args[0])
-		}
+	// Try non-interactive auth first.
+	if token != "" {
+		cacheRemoveEntry(cacheKey, "duplo") // never cache explicitly passed creds
+		client, needsOtp = duploClientAndOtpFlag(host, token, "", admin)
 
-		// Try to find credentials from the cache.
-		cacheKey := strings.TrimPrefix(host, "https://")
-		creds = CacheGetDuploOutput(cacheKey, host)
+		// If OTP is needed, we can only continue if interactive auth is allowed.
+		if needsOtp {
+			if !interactive {
+				log.Fatalf("%s: server requires MFA but --interactive mode is disabled", os.Args[0])
+			}
 
-		// If we have valid credentials, and we do not need OTP, return the new client.
-		if creds != nil && (!admin || !creds.NeedOTP) {
-			client, err = duplocloud.NewClient(host, creds.DuploToken)
-			DieIf(err, "invalid arguments")
-
-			// Otherwise, get the token the interactive way.
-		} else {
-			tokenResult := MustTokenInteractive(host, admin, "duplo-jit")
-			token = tokenResult.Token
-			otp = tokenResult.OTP
-
-			// Write the creds to the cache.
-			cacheFile := fmt.Sprintf("%s,duplo-creds.json", cacheKey)
+			// The client is usable, so we can return our result.
+		} else if client != nil {
 			creds = &DuploCredsOutput{
 				Version:    1,
 				DuploToken: token,
-				NeedOTP:    otp != "",
+				NeedOTP:    needsOtp,
 			}
-			cacheWriteMustMarshal(cacheFile, creds)
+			return
+
+			// The client is not usable, so we have an error.
+		} else {
+			log.Fatalf("%s: authentication failure: failed to collect system features", os.Args[0])
 		}
 	}
 
-	// Create the client.
-	if client == nil {
-		client, err = duplocloud.NewClientWithOtp(host, token, otp)
-		DieIf(err, "invalid arguments")
+	// Non-interactive auth was not available or not sufficient.
+	if !interactive {
+		log.Fatalf("%s: --token not specified and --interactive mode is disabled", os.Args[0])
 	}
 
-	// Ensure we have a representation off credentials
-	if creds == nil {
+	// Next, we load and validate Duplo credentials from the cache.
+	if token == "" {
+		creds = CacheGetDuploOutput(cacheKey, host)
+		if creds != nil {
+			client, _ = duploClientAndOtpFlag(host, creds.DuploToken, "", admin)
+		}
+	}
+
+	// Cached credentials were not available or not sufficient.
+	// So, finally, we try to retrieve and validate Duplo credentials interactively.
+	if client == nil {
+
+		// Clear invalid cached credentials.
+		if token == "" {
+			cacheRemoveEntry(cacheKey, "duplo")
+		}
+
+		// Get the token, or fail.
+		tokenResult := MustTokenInteractive(host, admin, "duplo-jit")
+		if tokenResult.Token == "" {
+			log.Fatalf("%s: authentication failure: failed to get token interactively", os.Args[0])
+		}
+
+		// Get the client, or fail.
+		client, _ = duploClientAndOtpFlag(host, tokenResult.Token, tokenResult.OTP, admin)
+		if client == nil {
+			log.Fatalf("%s: authentication failure: failed to collect system features", os.Args[0])
+		}
+
+		// Build credentials.
 		creds = &DuploCredsOutput{
 			Version:    1,
-			DuploToken: token,
-			NeedOTP:    client.OTP != "",
+			DuploToken: tokenResult.Token,
+			NeedOTP:    tokenResult.OTP != "",
 		}
 
-		// Ensure we are aware of any OTP requirements
-		if admin && !creds.NeedOTP {
-			features, err := client.FeaturesSystem()
-			DieIf(err, "failed to collect system features from Duplo")
-			creds.NeedOTP = features.IsOtpNeeded
+		// Write the creds to the cache, unless we started out with a non-interactive token
+		if token == "" {
+			cacheFile := fmt.Sprintf("%s,duplo-creds.json", cacheKey)
+			cacheWriteMustMarshal(cacheFile, creds)
 		}
 	}
 
