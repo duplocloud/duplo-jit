@@ -69,7 +69,6 @@ announce:
     channel: '#duplo-devs'
 release:
   draft: false
-# .goreleaser.yaml
 brews:
   - name: duplo-jit
 
