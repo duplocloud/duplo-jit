@@ -77,7 +77,7 @@ brews:
       owner: duplocloud
       name: homebrew-tap
       branch: main
-      token: ${{ secrets.RELEASE_BOT_GITHUB_TOKEN }}
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     url_template: "https://github.com/duplocloud/duplo-jit/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
     commit_author:
       name: duplo-bot
