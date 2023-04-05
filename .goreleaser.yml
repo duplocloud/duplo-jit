@@ -69,3 +69,23 @@ announce:
     channel: '#duplo-devs'
 release:
   draft: false
+brews:
+  - name: duplo-jit
+    goarm: 6
+    goamd64: v1
+    tap:
+      owner: duplocloud
+      name: homebrew-tap
+      branch: main
+      token: ${{ secrets.RELEASE_BOT_GITHUB_TOKEN }}
+    url_template: "https://github.com/duplocloud/duplo-jit/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
+    commit_author:
+      name: duplo-bot
+      email: joe+github-bot@duplocloud.net
+    commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
+    folder: Formula
+    homepage: "https://github.com/duplocloud/duplo-jit"
+    description: "Command-line tools for JIT Duplo, AWS and Kubernetes access"
+    license: "MIT"
+    test: |
+      system "duplo-jit version"
