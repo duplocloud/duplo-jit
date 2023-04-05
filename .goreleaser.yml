@@ -71,7 +71,7 @@ release:
   draft: false
 brews:
   - name: duplo-jit
-    goarm: 8
+    goarm: 6
     goamd64: v1
     tap:
       owner: duplocloud
