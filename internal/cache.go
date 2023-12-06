@@ -161,7 +161,7 @@ func CacheGetDuploOutput(cacheKey string, host string) (creds *DuploCredsOutput)
 }
 
 // CacheGetAwsConfigOutput tries to read prior K8s creds from the cache.
-func CacheGetK8sConfigOutput(cacheKey string) (creds *clientauthv1beta1.ExecCredential) {
+func CacheGetK8sConfigOutput(cacheKey string, tenantID *string) (creds *clientauthv1beta1.ExecCredential) {
 	var file string
 
 	// Read credentials from the cache.
@@ -184,7 +184,7 @@ func CacheGetK8sConfigOutput(cacheKey string) (creds *clientauthv1beta1.ExecCred
 
 		// Validate creds by executing ping
 		if creds != nil {
-			if err := PingK8sCreds(creds); err != nil {
+			if err := PingK8sCreds(creds, *tenantID); err != nil {
 				creds = nil
 			}
 		}
