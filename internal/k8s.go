@@ -65,7 +65,7 @@ func OutputK8sCreds(creds *clientauthv1beta1.ExecCredential, cacheKey string) {
 	os.Stdout.WriteString("\n")
 }
 
-func PingK8sCreds(creds *clientauthv1beta1.ExecCredential) error {
+func PingK8sCreds(creds *clientauthv1beta1.ExecCredential, tenantID string) error {
 	config := &rest.Config{
 		Host: creds.Spec.Cluster.Server,
 		TLSClientConfig: rest.TLSClientConfig{
@@ -79,7 +79,14 @@ func PingK8sCreds(creds *clientauthv1beta1.ExecCredential) error {
 		return err
 	}
 
-	_, err = clientset.CoreV1().ServiceAccounts("default").List(context.TODO(), metav1.ListOptions{})
+	namespace := tenantID
+	if namespace == "" {
+		namespace = "kube-system"
+	} else {
+		namespace = fmt.Sprintf("duploservices-%s", namespace)
+	}
+
+	_, err = clientset.CoreV1().ServiceAccounts(namespace).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return err
 	}

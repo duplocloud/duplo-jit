@@ -178,7 +178,7 @@ func main() {
 			cacheKey = strings.Join([]string{strings.TrimPrefix(*host, "https://"), "plan", *planID}, ",")
 
 			// Try to find credentials from the cache.
-			creds = internal.CacheGetK8sConfigOutput(cacheKey)
+			creds = internal.CacheGetK8sConfigOutput(cacheKey, tenantID)
 
 			// Otherwise, get the credentials from Duplo.
 			if creds == nil {
@@ -199,7 +199,7 @@ func main() {
 			cacheKey = strings.Join([]string{strings.TrimPrefix(*host, "https://"), "tenant", *tenantID}, ",")
 
 			// Try to find credentials from the cache.
-			creds = internal.CacheGetK8sConfigOutput(cacheKey)
+			creds = internal.CacheGetK8sConfigOutput(cacheKey, tenantID)
 
 			// Otherwise, get the credentials from Duplo.
 			if creds == nil {
