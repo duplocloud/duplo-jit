@@ -1,0 +1,37 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "AWS",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/duplo-jit/main.go",
+            "args": [
+                "aws",
+                "--admin",
+                "--host",
+                "https://prod.duplocloud.net",
+                "--interactive"
+            ],
+        },
+        {
+            "name": "K8s",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/duplo-jit/main.go",
+            "args": [
+                "k8s",
+                "--plan",
+                "nonprod",
+                "--host",
+                "https://msp.duplocloud.net/",
+                "--interactive"
+            ],
+        }
+    ]
+}

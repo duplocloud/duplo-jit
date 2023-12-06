@@ -135,8 +135,7 @@ func CacheGetDuploOutput(cacheKey string, host string) (creds *DuploCredsOutput)
 
 		// Check credentials for expiry - by trying to retrieve system features
 		if creds != nil {
-
-			// Retrieve system features.
+			// Retrieve system features. This also validates the creds.
 			client, err := duplocloud.NewClient(host, creds.DuploToken)
 			if err == nil {
 				var features *duplocloud.DuploSystemFeatures
@@ -175,16 +174,22 @@ func CacheGetK8sConfigOutput(cacheKey string) (creds *clientauthv1beta1.ExecCred
 
 		// Check credentials for expiry.
 		if creds != nil {
+			// Expires in five minutes or less?
 			five_minutes_from_now := time.Now().UTC().Add(5 * time.Minute)
 			expiration := creds.Status.ExpirationTimestamp.Time
-
-			// Expires in five minutes or less?
 			if five_minutes_from_now.After(expiration) {
 				creds = nil
 			}
 		}
 
-		// Clear the cache if the creds expired.
+		// Validate creds by executing ping
+		if creds != nil {
+			if err := PingK8sCreds(creds); err != nil {
+				creds = nil
+			}
+		}
+
+		// Clear the cache if the creds expired or invalid
 		if creds == nil {
 			cacheRemoveFile(cacheKey, file)
 		}
