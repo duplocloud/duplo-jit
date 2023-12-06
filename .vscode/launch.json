@@ -14,7 +14,7 @@
                 "aws",
                 "--admin",
                 "--host",
-                "https://prod.duplocloud.net",
+                "https://msp.duplocloud.net",
                 "--interactive"
             ],
         },
