@@ -65,7 +65,7 @@ func OutputK8sCreds(creds *clientauthv1beta1.ExecCredential, cacheKey string) {
 	os.Stdout.WriteString("\n")
 }
 
-func PingK8sCreds(creds *clientauthv1beta1.ExecCredential, tenantID string) error {
+func PingK8sCreds(creds *clientauthv1beta1.ExecCredential, tenantName string) error {
 	config := &rest.Config{
 		Host: creds.Spec.Cluster.Server,
 		TLSClientConfig: rest.TLSClientConfig{
@@ -79,7 +79,7 @@ func PingK8sCreds(creds *clientauthv1beta1.ExecCredential, tenantID string) erro
 		return err
 	}
 
-	namespace := tenantID
+	namespace := tenantName
 	if namespace == "" {
 		namespace = "kube-system"
 	} else {
