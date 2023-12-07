@@ -14,12 +14,12 @@
                 "aws",
                 "--admin",
                 "--host",
-                "https://msp.duplocloud.net",
+                "https://test20.duplocloud.net",
                 "--interactive"
             ],
         },
         {
-            "name": "K8s",
+            "name": "K8s Plan",
             "type": "go",
             "request": "launch",
             "mode": "auto",
@@ -29,7 +29,37 @@
                 "--plan",
                 "nonprod",
                 "--host",
-                "https://msp.duplocloud.net/",
+                "https://test20.duplocloud.net/",
+                "--interactive"
+            ],
+        },
+        {
+            "name": "K8s Tenant Name",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/duplo-jit/main.go",
+            "args": [
+                "k8s",
+                "--tenant",
+                "nonprod",
+                "--host",
+                "https://test20.duplocloud.net/",
+                "--interactive"
+            ],
+        },
+        {
+            "name": "K8s Tenant ID",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/duplo-jit/main.go",
+            "args": [
+                "k8s",
+                "--tenant",
+                "e5f31c01-64b0-4f42-a29d-78d437c9c132",
+                "--host",
+                "https://test20.duplocloud.net/",
                 "--interactive"
             ],
         }
