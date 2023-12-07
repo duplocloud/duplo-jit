@@ -172,14 +172,13 @@ func main() {
 	case "k8s":
 		var creds *clientauthv1beta1.ExecCredential
 		var cacheKey string
-		var tenantName string
 		if planID != nil && *planID != "" {
 
 			// Build the cache key
 			cacheKey = strings.Join([]string{strings.TrimPrefix(*host, "https://"), "plan", *planID}, ",")
 
 			// Try to find credentials from the cache.
-			creds = internal.CacheGetK8sConfigOutput(cacheKey, tenantName)
+			creds = internal.CacheGetK8sConfigOutput(cacheKey, "")
 
 			// Otherwise, get the credentials from Duplo.
 			if creds == nil {
@@ -196,6 +195,7 @@ func main() {
 
 		} else {
 
+			var tenantName string
 			client, _ := internal.MustDuploClient(*host, *token, *interactive, false)
 
 			// If it doesn't look like a UUID, get the tenant ID from the name.
@@ -219,7 +219,7 @@ func main() {
 			}
 
 			// Build the cache key.
-			cacheKey = strings.Join([]string{strings.TrimPrefix(*host, "https://"), "tenant", *tenantID}, ",")
+			cacheKey = strings.Join([]string{strings.TrimPrefix(*host, "https://"), "tenant", tenantName, *tenantID}, ",")
 
 			// Try to find credentials from the cache.
 			creds = internal.CacheGetK8sConfigOutput(cacheKey, tenantName)
