@@ -5,7 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "AWS",
+            "name": "AWS Admin",
             "type": "go",
             "request": "launch",
             "mode": "auto",
@@ -13,6 +13,50 @@
             "args": [
                 "aws",
                 "--admin",
+                "--host",
+                "https://test20.duplocloud.net",
+                "--interactive"
+            ],
+        },
+        {
+            "name": "AWS Tenant Name",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/duplo-jit/main.go",
+            "args": [
+                "aws",
+                "--tenant",
+                "non-prod",
+                "--host",
+                "https://test20.duplocloud.net",
+                "--interactive"
+            ],
+        },
+        {
+            "name": "AWS Tenant ID",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/duplo-jit/main.go",
+            "args": [
+                "aws",
+                "--tenant",
+                "e5f31c01-64b0-4f42-a29d-78d437c9c132",
+                "--host",
+                "https://test20.duplocloud.net",
+                "--interactive"
+            ],
+        },
+        {
+            "name": "AWS Duplo Ops",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/duplo-jit/main.go",
+            "args": [
+                "aws",
+                "--duplo-ops",
                 "--host",
                 "https://test20.duplocloud.net",
                 "--interactive"
