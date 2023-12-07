@@ -219,7 +219,7 @@ func main() {
 			}
 
 			// Build the cache key.
-			cacheKey = strings.Join([]string{strings.TrimPrefix(*host, "https://"), "tenant", tenantName, *tenantID}, ",")
+			cacheKey = strings.Join([]string{strings.TrimPrefix(*host, "https://"), "tenant", tenantName}, ",")
 
 			// Try to find credentials from the cache.
 			creds = internal.CacheGetK8sConfigOutput(cacheKey, tenantName)
