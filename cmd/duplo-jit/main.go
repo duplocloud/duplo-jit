@@ -134,27 +134,19 @@ func main() {
 
 		} else {
 
+			// Identify the tenant name to use for the cache key.
+			var tenantName string
+			client, _ := internal.MustDuploClient(*host, *token, *interactive, false)
+			*tenantID, tenantName = GetTenantIdAndName(*tenantID, client)
+
 			// Build the cache key.
-			cacheKey = strings.Join([]string{strings.TrimPrefix(*host, "https://"), "tenant", *tenantID}, ",")
+			cacheKey = strings.Join([]string{strings.TrimPrefix(*host, "https://"), "tenant", tenantName}, ",")
 
 			// Try to find credentials from the cache.
 			creds = internal.CacheGetAwsConfigOutput(cacheKey)
 
 			// Otherwise, get the credentials from Duplo.
 			if creds == nil {
-				client, _ := internal.MustDuploClient(*host, *token, *interactive, false)
-
-				// If it doesn't look like a UUID, get the tenant ID from the name.
-				if len(*tenantID) < 32 {
-					var err error
-					tenant, err := client.GetTenantByNameForUser(*tenantID)
-					if tenant == nil || err != nil {
-						internal.Fatal(fmt.Sprintf("%s: tenant missing or not allowed", *tenantID), err)
-					} else {
-						tenantID = &tenant.TenantID
-					}
-				}
-
 				// Tenant: Get the JIT AWS credentials
 				result, err := client.TenantGetJITAwsCredentials(*tenantID)
 				internal.DieIf(err, "failed to get credentials")
@@ -195,28 +187,10 @@ func main() {
 
 		} else {
 
+			// Identify the tenant name to use for the cache key.
 			var tenantName string
 			client, _ := internal.MustDuploClient(*host, *token, *interactive, false)
-
-			// If it doesn't look like a UUID, get the tenant ID from the name.
-			if len(*tenantID) < 32 {
-				var err error
-				tenant, err := client.GetTenantByNameForUser(*tenantID)
-				if tenant == nil || err != nil {
-					internal.Fatal(fmt.Sprintf("%s: tenant missing or not allowed", *tenantID), err)
-				} else {
-					tenantName = *tenantID
-					tenantID = &tenant.TenantID
-				}
-			} else { // It looks like a UUID, get the tenant name from the ID.
-				var err error
-				tenant, err := client.GetTenantForUser(*tenantID)
-				if tenant == nil || err != nil {
-					internal.Fatal(fmt.Sprintf("%s: tenant missing or not allowed", *tenantID), err)
-				} else {
-					tenantName = tenant.AccountName
-				}
-			}
+			*tenantID, tenantName = GetTenantIdAndName(*tenantID, client)
 
 			// Build the cache key.
 			cacheKey = strings.Join([]string{strings.TrimPrefix(*host, "https://"), "tenant", tenantName}, ",")
@@ -238,4 +212,32 @@ func main() {
 		internal.OutputK8sCreds(creds, cacheKey)
 
 	}
+}
+
+func GetTenantIdAndName(tenantIDorName string, client *duplocloud.Client) (string, string) {
+	var tenantID string
+	var tenantName string
+
+	// If it doesn't look like a UUID, assume it is a name and get the tenant ID using its name.
+	if len(tenantIDorName) < 32 {
+		var err error
+		tenantName = tenantIDorName
+		tenant, err := client.GetTenantByNameForUser(tenantName)
+		if tenant == nil || err != nil {
+			internal.Fatal(fmt.Sprintf("%s: tenant missing or not allowed", tenantName), err)
+		} else {
+			tenantID = tenant.TenantID
+		}
+	} else {
+		// It looks like a UUID, assume it is one and get the tenant name using its ID.
+		var err error
+		tenant, err := client.GetTenantForUser(tenantID)
+		if tenant == nil || err != nil {
+			internal.Fatal(fmt.Sprintf("%s: tenant missing or not allowed", tenantID), err)
+		} else {
+			tenantName = tenant.AccountName
+		}
+	}
+
+	return tenantID, tenantName
 }
