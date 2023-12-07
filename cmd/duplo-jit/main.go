@@ -178,7 +178,7 @@ func main() {
 			cacheKey = strings.Join([]string{strings.TrimPrefix(*host, "https://"), "plan", *planID}, ",")
 
 			// Try to find credentials from the cache.
-			creds = internal.CacheGetK8sConfigOutput(cacheKey)
+			creds = internal.CacheGetK8sConfigOutput(cacheKey, "")
 
 			// Otherwise, get the credentials from Duplo.
 			if creds == nil {
@@ -195,32 +195,43 @@ func main() {
 
 		} else {
 
+			var tenantName string
+			client, _ := internal.MustDuploClient(*host, *token, *interactive, false)
+
+			// If it doesn't look like a UUID, get the tenant ID from the name.
+			if len(*tenantID) < 32 {
+				var err error
+				tenant, err := client.GetTenantByNameForUser(*tenantID)
+				if tenant == nil || err != nil {
+					internal.Fatal(fmt.Sprintf("%s: tenant missing or not allowed", *tenantID), err)
+				} else {
+					tenantName = *tenantID
+					tenantID = &tenant.TenantID
+				}
+			} else { // It looks like a UUID, get the tenant name from the ID.
+				var err error
+				tenant, err := client.GetTenantForUser(*tenantID)
+				if tenant == nil || err != nil {
+					internal.Fatal(fmt.Sprintf("%s: tenant missing or not allowed", *tenantID), err)
+				} else {
+					tenantName = tenant.AccountName
+				}
+			}
+
 			// Build the cache key.
-			cacheKey = strings.Join([]string{strings.TrimPrefix(*host, "https://"), "tenant", *tenantID}, ",")
+			cacheKey = strings.Join([]string{strings.TrimPrefix(*host, "https://"), "tenant", tenantName}, ",")
 
 			// Try to find credentials from the cache.
-			creds = internal.CacheGetK8sConfigOutput(cacheKey)
+			creds = internal.CacheGetK8sConfigOutput(cacheKey, tenantName)
 
 			// Otherwise, get the credentials from Duplo.
 			if creds == nil {
-				client, _ := internal.MustDuploClient(*host, *token, *interactive, false)
-
-				// If it doesn't look like a UUID, get the tenant ID from the name.
-				if len(*tenantID) < 32 {
-					var err error
-					tenant, err := client.GetTenantByNameForUser(*tenantID)
-					if tenant == nil || err != nil {
-						internal.Fatal(fmt.Sprintf("%s: tenant missing or not allowed", *tenantID), err)
-					} else {
-						tenantID = &tenant.TenantID
-					}
-				}
-
 				// Tenant: Get the JIT AWS credentials
 				result, err := client.TenantGetK8sJitAccess(*tenantID)
 				internal.DieIf(err, "failed to get credentials")
 				creds = internal.ConvertK8sCreds(result)
 			}
+
 		}
 
 		// Finally, we can output credentials.
