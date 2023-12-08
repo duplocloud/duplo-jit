@@ -112,6 +112,13 @@ func CacheGetAwsConfigOutput(cacheKey string) (creds *AwsConfigOutput) {
 			}
 		}
 
+		// Validate creds by executing ping
+		if creds != nil {
+			if err := PingAWSCreds(creds); err != nil {
+				creds = nil
+			}
+		}
+
 		// Clear the cache if the creds expired.
 		if creds == nil {
 			cacheRemoveFile(cacheKey, file)
