@@ -128,3 +128,17 @@ func OutputDuploCreds(creds *DuploCredsOutput) {
 	os.Stdout.Write(json)
 	os.Stdout.WriteString("\n")
 }
+
+func PingDuploCreds(creds *DuploCredsOutput, host string) error {
+	client, err := duplocloud.NewClient(host, creds.DuploToken)
+	if err != nil {
+		return err
+	}
+
+	_, cerr := client.AdminGetInfrastructure("default")
+	if cerr != nil && cerr.Status() != 404 {
+		return cerr
+	}
+
+	return nil
+}
