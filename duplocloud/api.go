@@ -30,6 +30,16 @@ type DuploSystemFeatures struct {
 	TenantNameMaxLength   int    `json:"TenantNameMaxLength"`
 }
 
+// DuploInfrastructureConfig represents an infrastructure configuration
+type DuploInfrastructure struct {
+	Name                    string `json:"Name,omitempty"`
+	Region                  string `json:"Region,omitempty"`
+	EnableK8Cluster         bool   `json:"EnableK8Cluster,omitempty"`
+	EnableECSCluster        bool   `json:"EnableECSCluster,omitempty"`
+	EnableContainerInsights bool   `json:"EnableContainerInsights,omitempty"`
+	ProvisioningStatus      string `json:"ProvisioningStatus,omitempty"`
+}
+
 // DuploPlanK8ClusterConfig represents a k8s system configuration
 type DuploPlanK8ClusterConfig struct {
 	Name                           string     `json:"Name,omitempty"`
@@ -94,15 +104,15 @@ func (c *Client) AdminGetK8sJitAccess(plan string) (*DuploPlanK8ClusterConfig, C
 }
 
 // AdminGetJITAwsCredentials retrieves just-in-time admin AWS credentials via the Duplo API.
-func (c *Client) AdminGetJITAwsCredentials() (*AwsJitCredentials, ClientError) {
+func (c *Client) AdminGetJitAwsCredentials() (*AwsJitCredentials, ClientError) {
 	return c.AdminAwsGetJitAccess("admin")
 }
 
 // TenantGetJITAwsCredentials retrieves just-in-time AWS credentials for a tenant via the Duplo API.
-func (c *Client) TenantGetJITAwsCredentials(tenantID string) (*AwsJitCredentials, ClientError) {
+func (c *Client) TenantGetJitAwsCredentials(tenantID string) (*AwsJitCredentials, ClientError) {
 	creds := AwsJitCredentials{}
 	err := c.getAPI(
-		fmt.Sprintf("TenantGetAwsCredentials(%s)", tenantID),
+		fmt.Sprintf("TenantGetJitAwsCredentials(%s)", tenantID),
 		fmt.Sprintf("subscriptions/%s/GetAwsConsoleTokenUrl", tenantID),
 		&creds,
 	)
@@ -134,6 +144,19 @@ func (c *Client) ListTenantsForUser() (*[]UserTenant, ClientError) {
 		return nil, err
 	}
 	return &list, nil
+}
+
+func (c *Client) AdminGetInfrastructure(infraName string) (*DuploInfrastructure, ClientError) {
+	config := DuploInfrastructure{}
+	err := c.getAPI(
+		fmt.Sprintf("AdminGetInfrastructure(%s)", infraName),
+		fmt.Sprintf("v3/admin/infrastructure/%s", infraName),
+		&config,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &config, nil
 }
 
 // GetTenantByNameForUser retrieves a single tenant by name for the current user via the Duplo API.

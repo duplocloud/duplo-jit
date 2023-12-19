@@ -106,7 +106,7 @@ func main() {
 			// Otherwise, get the credentials from Duplo.
 			if creds == nil {
 				client, _ := internal.MustDuploClient(*host, *token, *interactive, true)
-				result, err := client.AdminGetJITAwsCredentials()
+				result, err := client.AdminGetJitAwsCredentials()
 				internal.DieIf(err, "failed to get credentials")
 				creds = internal.ConvertAwsCreds(result)
 			}
@@ -148,7 +148,7 @@ func main() {
 			// Otherwise, get the credentials from Duplo.
 			if creds == nil {
 				// Tenant: Get the JIT AWS credentials
-				result, err := client.TenantGetJITAwsCredentials(*tenantID)
+				result, err := client.TenantGetJitAwsCredentials(*tenantID)
 				internal.DieIf(err, "failed to get credentials")
 				creds = internal.ConvertAwsCreds(result)
 			}
