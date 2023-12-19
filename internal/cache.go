@@ -142,7 +142,7 @@ func CacheGetDuploOutput(cacheKey string, host string) (creds *DuploCredsOutput)
 
 		// Check credentials for expiry - by trying to retrieve system features
 		if creds != nil {
-			// Retrieve system features. This also validates the creds.
+			// Retrieve system features.
 			client, err := duplocloud.NewClient(host, creds.DuploToken)
 			if err == nil {
 				var features *duplocloud.DuploSystemFeatures
@@ -154,6 +154,13 @@ func CacheGetDuploOutput(cacheKey string, host string) (creds *DuploCredsOutput)
 
 			// If we have any errors, assume that the credentials have expired
 			if err != nil {
+				creds = nil
+			}
+		}
+
+		// Validate creds by executing ping
+		if creds != nil {
+			if err := PingDuploCreds(creds, host); err != nil {
 				creds = nil
 			}
 		}
