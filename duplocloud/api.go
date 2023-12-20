@@ -30,16 +30,6 @@ type DuploSystemFeatures struct {
 	TenantNameMaxLength   int    `json:"TenantNameMaxLength"`
 }
 
-// DuploInfrastructureConfig represents an infrastructure configuration
-type DuploInfrastructure struct {
-	Name                    string `json:"Name,omitempty"`
-	Region                  string `json:"Region,omitempty"`
-	EnableK8Cluster         bool   `json:"EnableK8Cluster,omitempty"`
-	EnableECSCluster        bool   `json:"EnableECSCluster,omitempty"`
-	EnableContainerInsights bool   `json:"EnableContainerInsights,omitempty"`
-	ProvisioningStatus      string `json:"ProvisioningStatus,omitempty"`
-}
-
 // DuploTenantFeatures represents configured features for the tenant
 type DuploTenantFeatures struct {
 	Region              string `json:"Region,omitempty"`
@@ -151,20 +141,6 @@ func (c *Client) ListTenantsForUser() (*[]UserTenant, ClientError) {
 		return nil, err
 	}
 	return &list, nil
-}
-
-func (c *Client) AdminGetInfrastructure(infraName string) (*DuploInfrastructure, ClientError) {
-	infra := DuploInfrastructure{}
-	err := c.getAPI(
-		fmt.Sprintf("AdminGetInfrastructure(%s)", infraName),
-		fmt.Sprintf("v3/admin/infrastructure/%s", infraName),
-		&infra,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	return &infra, nil
 }
 
 func (c *Client) GetTenantFeatures(tenantId string) (*DuploTenantFeatures, ClientError) {
