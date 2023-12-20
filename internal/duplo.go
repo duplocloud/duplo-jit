@@ -135,9 +135,14 @@ func PingDuploCreds(creds *DuploCredsOutput, host string) error {
 		return err
 	}
 
-	_, cerr := client.AdminGetInfrastructure("default")
-	if cerr != nil && cerr.Status() != 404 {
-		return cerr
+	tenant, terr := client.GetTenantByNameForUser("default")
+	if terr != nil {
+		return err
+	}
+
+	_, ferr := client.GetTenantFeatures(tenant.TenantID)
+	if ferr != nil {
+		return ferr
 	}
 
 	return nil

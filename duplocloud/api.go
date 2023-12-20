@@ -40,6 +40,13 @@ type DuploInfrastructure struct {
 	ProvisioningStatus      string `json:"ProvisioningStatus,omitempty"`
 }
 
+// DuploTenantFeatures represents configured features for the tenant
+type DuploTenantFeatures struct {
+	Region              string `json:"Region,omitempty"`
+	IsKubernetesEnabled bool   `json:"IsKubernetesEnabled"`
+	UseLbIndex          bool   `json:"UseLbIndex"`
+}
+
 // DuploPlanK8ClusterConfig represents a k8s system configuration
 type DuploPlanK8ClusterConfig struct {
 	Name                           string     `json:"Name,omitempty"`
@@ -147,16 +154,31 @@ func (c *Client) ListTenantsForUser() (*[]UserTenant, ClientError) {
 }
 
 func (c *Client) AdminGetInfrastructure(infraName string) (*DuploInfrastructure, ClientError) {
-	config := DuploInfrastructure{}
+	infra := DuploInfrastructure{}
 	err := c.getAPI(
 		fmt.Sprintf("AdminGetInfrastructure(%s)", infraName),
 		fmt.Sprintf("v3/admin/infrastructure/%s", infraName),
-		&config,
+		&infra,
 	)
 	if err != nil {
 		return nil, err
 	}
-	return &config, nil
+
+	return &infra, nil
+}
+
+func (c *Client) GetTenantFeatures(tenantId string) (*DuploTenantFeatures, ClientError) {
+	features := DuploTenantFeatures{}
+	err := c.getAPI(
+		fmt.Sprintf("GetTenantFeatures(%s)", tenantId),
+		fmt.Sprintf("v3/features/tenant/%s", tenantId),
+		&features,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &features, nil
 }
 
 // GetTenantByNameForUser retrieves a single tenant by name for the current user via the Duplo API.
