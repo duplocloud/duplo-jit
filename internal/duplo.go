@@ -2,6 +2,7 @@ package internal
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -135,11 +136,16 @@ func PingDuploCreds(creds *DuploCredsOutput, host string) error {
 		return err
 	}
 
-	tenant, terr := client.GetTenantByNameForUser("default")
+	tenants, terr := client.ListTenantsForUser()
 	if terr != nil {
-		return err
+		return terr
 	}
 
+	if len(*tenants) == 0 {
+		return errors.New("PingDuploCreds: user has no tenants")
+	}
+
+	tenant := (*tenants)[0]
 	_, ferr := client.GetTenantFeatures(tenant.TenantID)
 	if ferr != nil {
 		return ferr
