@@ -30,6 +30,13 @@ type DuploSystemFeatures struct {
 	TenantNameMaxLength   int    `json:"TenantNameMaxLength"`
 }
 
+// DuploTenantFeatures represents configured features for the tenant
+type DuploTenantFeatures struct {
+	Region              string `json:"Region,omitempty"`
+	IsKubernetesEnabled bool   `json:"IsKubernetesEnabled"`
+	UseLbIndex          bool   `json:"UseLbIndex"`
+}
+
 // DuploPlanK8ClusterConfig represents a k8s system configuration
 type DuploPlanK8ClusterConfig struct {
 	Name                           string     `json:"Name,omitempty"`
@@ -94,15 +101,15 @@ func (c *Client) AdminGetK8sJitAccess(plan string) (*DuploPlanK8ClusterConfig, C
 }
 
 // AdminGetJITAwsCredentials retrieves just-in-time admin AWS credentials via the Duplo API.
-func (c *Client) AdminGetJITAwsCredentials() (*AwsJitCredentials, ClientError) {
+func (c *Client) AdminGetJitAwsCredentials() (*AwsJitCredentials, ClientError) {
 	return c.AdminAwsGetJitAccess("admin")
 }
 
 // TenantGetJITAwsCredentials retrieves just-in-time AWS credentials for a tenant via the Duplo API.
-func (c *Client) TenantGetJITAwsCredentials(tenantID string) (*AwsJitCredentials, ClientError) {
+func (c *Client) TenantGetJitAwsCredentials(tenantID string) (*AwsJitCredentials, ClientError) {
 	creds := AwsJitCredentials{}
 	err := c.getAPI(
-		fmt.Sprintf("TenantGetAwsCredentials(%s)", tenantID),
+		fmt.Sprintf("TenantGetJitAwsCredentials(%s)", tenantID),
 		fmt.Sprintf("subscriptions/%s/GetAwsConsoleTokenUrl", tenantID),
 		&creds,
 	)
@@ -134,6 +141,20 @@ func (c *Client) ListTenantsForUser() (*[]UserTenant, ClientError) {
 		return nil, err
 	}
 	return &list, nil
+}
+
+func (c *Client) GetTenantFeatures(tenantId string) (*DuploTenantFeatures, ClientError) {
+	features := DuploTenantFeatures{}
+	err := c.getAPI(
+		fmt.Sprintf("GetTenantFeatures(%s)", tenantId),
+		fmt.Sprintf("v3/features/tenant/%s", tenantId),
+		&features,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &features, nil
 }
 
 // GetTenantByNameForUser retrieves a single tenant by name for the current user via the Duplo API.
