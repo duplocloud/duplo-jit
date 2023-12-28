@@ -231,7 +231,8 @@ func GetTenantIdAndName(tenantIDorName string, client *duplocloud.Client) (strin
 	} else {
 		// It looks like a UUID, assume it is one and get the tenant name using its ID.
 		var err error
-		tenant, err := client.GetTenantForUser(tenantID)
+		tenantID = tenantIDorName
+		tenant, err := client.GetTenantForUser(tenantIDorName)
 		if tenant == nil || err != nil {
 			internal.Fatal(fmt.Sprintf("%s: tenant missing or not allowed", tenantID), err)
 		} else {
