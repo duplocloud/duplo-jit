@@ -3,7 +3,7 @@ package duplocloud
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -93,7 +93,7 @@ func responseHttpError(req *http.Request, res *http.Response) ClientError {
 
 	// Read the body, but tolerate a failure.
 	defer res.Body.Close()
-	bytes, err := ioutil.ReadAll(res.Body)
+	bytes, err := io.ReadAll(res.Body)
 	message := "(read of body failed)"
 	if err == nil {
 		message = string(bytes)
@@ -148,7 +148,7 @@ func (c *Client) doRequestWithStatus(req *http.Request, expectedStatus int) ([]b
 
 	// Otherwise, we have a response that needs reading.
 	defer res.Body.Close()
-	body, err := ioutil.ReadAll(res.Body)
+	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		logf(WARN, "duplo-doRequestWithStatus: %s", err)
 		return nil, ioHttpError(req, err)

@@ -112,6 +112,13 @@ func CacheGetAwsConfigOutput(cacheKey string) (creds *AwsConfigOutput) {
 			}
 		}
 
+		// Validate creds by executing ping
+		if creds != nil {
+			if err := PingAWSCreds(creds); err != nil {
+				creds = nil
+			}
+		}
+
 		// Clear the cache if the creds expired.
 		if creds == nil {
 			cacheRemoveFile(cacheKey, file)
@@ -135,7 +142,6 @@ func CacheGetDuploOutput(cacheKey string, host string) (creds *DuploCredsOutput)
 
 		// Check credentials for expiry - by trying to retrieve system features
 		if creds != nil {
-
 			// Retrieve system features.
 			client, err := duplocloud.NewClient(host, creds.DuploToken)
 			if err == nil {
@@ -152,6 +158,13 @@ func CacheGetDuploOutput(cacheKey string, host string) (creds *DuploCredsOutput)
 			}
 		}
 
+		// Validate creds by executing ping
+		if creds != nil {
+			if err := PingDuploCreds(creds, host); err != nil {
+				creds = nil
+			}
+		}
+
 		// Clear the cache if the creds expired.
 		if creds == nil {
 			cacheRemoveFile(cacheKey, file)
@@ -162,7 +175,7 @@ func CacheGetDuploOutput(cacheKey string, host string) (creds *DuploCredsOutput)
 }
 
 // CacheGetAwsConfigOutput tries to read prior K8s creds from the cache.
-func CacheGetK8sConfigOutput(cacheKey string) (creds *clientauthv1beta1.ExecCredential) {
+func CacheGetK8sConfigOutput(cacheKey string, tenantName string) (creds *clientauthv1beta1.ExecCredential) {
 	var file string
 
 	// Read credentials from the cache.
@@ -175,16 +188,22 @@ func CacheGetK8sConfigOutput(cacheKey string) (creds *clientauthv1beta1.ExecCred
 
 		// Check credentials for expiry.
 		if creds != nil {
+			// Expires in five minutes or less?
 			five_minutes_from_now := time.Now().UTC().Add(5 * time.Minute)
 			expiration := creds.Status.ExpirationTimestamp.Time
-
-			// Expires in five minutes or less?
 			if five_minutes_from_now.After(expiration) {
 				creds = nil
 			}
 		}
 
-		// Clear the cache if the creds expired.
+		// Validate creds by executing ping
+		if creds != nil {
+			if err := PingK8sCreds(creds, tenantName); err != nil {
+				creds = nil
+			}
+		}
+
+		// Clear the cache if the creds expired or invalid
 		if creds == nil {
 			cacheRemoveFile(cacheKey, file)
 		}

@@ -1,0 +1,124 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "AWS Admin",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/duplo-jit/main.go",
+            "args": [
+                "aws",
+                "--admin",
+                "--host",
+                "https://test20.duplocloud.net",
+                "--interactive"
+            ],
+        },
+        {
+            "name": "AWS Tenant Name",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/duplo-jit/main.go",
+            "args": [
+                "aws",
+                "--tenant",
+                "non-prod",
+                "--host",
+                "https://test20.duplocloud.net",
+                "--interactive"
+            ],
+        },
+        {
+            "name": "AWS Tenant ID",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/duplo-jit/main.go",
+            "args": [
+                "aws",
+                "--tenant",
+                "e5f31c01-64b0-4f42-a29d-78d437c9c132",
+                "--host",
+                "https://test20.duplocloud.net",
+                "--interactive"
+            ],
+        },
+        {
+            "name": "AWS Duplo Ops",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/duplo-jit/main.go",
+            "args": [
+                "aws",
+                "--duplo-ops",
+                "--host",
+                "https://test20.duplocloud.net",
+                "--interactive"
+            ],
+        },
+        {
+            "name": "Duplo",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/duplo-jit/main.go",
+            "args": [
+                "duplo",
+                "--host",
+                "https://test20.duplocloud.net",
+                "--interactive"
+            ],
+        },
+        {
+            "name": "K8s Plan",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/duplo-jit/main.go",
+            "args": [
+                "k8s",
+                "--plan",
+                "nonprod",
+                "--host",
+                "https://test20.duplocloud.net/",
+                "--interactive"
+            ],
+        },
+        {
+            "name": "K8s Tenant Name",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/duplo-jit/main.go",
+            "args": [
+                "k8s",
+                "--tenant",
+                "nonprod",
+                "--host",
+                "https://test20.duplocloud.net/",
+                "--interactive"
+            ],
+        },
+        {
+            "name": "K8s Tenant ID",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/duplo-jit/main.go",
+            "args": [
+                "k8s",
+                "--tenant",
+                "e5f31c01-64b0-4f42-a29d-78d437c9c132",
+                "--host",
+                "https://test20.duplocloud.net/",
+                "--interactive"
+            ],
+        }
+    ]
+}

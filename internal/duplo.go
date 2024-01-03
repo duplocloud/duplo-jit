@@ -2,6 +2,7 @@ package internal
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -127,4 +128,28 @@ func OutputDuploCreds(creds *DuploCredsOutput) {
 	// Write the creds to the output.
 	os.Stdout.Write(json)
 	os.Stdout.WriteString("\n")
+}
+
+func PingDuploCreds(creds *DuploCredsOutput, host string) error {
+	client, err := duplocloud.NewClient(host, creds.DuploToken)
+	if err != nil {
+		return err
+	}
+
+	tenants, terr := client.ListTenantsForUser()
+	if terr != nil {
+		return terr
+	}
+
+	if len(*tenants) == 0 {
+		return errors.New("PingDuploCreds: user has no tenants")
+	}
+
+	tenant := (*tenants)[0]
+	_, ferr := client.GetTenantFeatures(tenant.TenantID)
+	if ferr != nil {
+		return ferr
+	}
+
+	return nil
 }
