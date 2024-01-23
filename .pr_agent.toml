@@ -13,11 +13,11 @@ handle_pr_actions = ['opened', 'reopened', 'ready_for_review', 'review_requested
 pr_commands = [
     "/describe",
     "/review",
-    "/update_changelog"
+    "/update_changelog --pr_update_changelog.push_changelog_changes=true"
 ]
 handle_push_trigger = true
 push_commands = [
     "/describe",
     "/review -i --pr_reviewer.remove_previous_review_comment=true",
-    "/update_changelog --pr_update_changelog.push_changelog_changes=true"
+    "/update_changelog"
 ]
