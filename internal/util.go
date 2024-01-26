@@ -12,5 +12,8 @@ func DieIf(err error, msg string) {
 }
 
 func Fatal(msg string, err error) {
-	log.Fatalf("%s: %s: %s", os.Args[0], msg, err)
+	if err != nil {
+		log.Fatalf("%s: %s: %s", os.Args[0], msg, err)
+	}
+	log.Fatalf("%s: %s", os.Args[0], msg)
 }

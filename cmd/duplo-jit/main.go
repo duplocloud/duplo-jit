@@ -224,7 +224,7 @@ func GetTenantIdAndName(tenantIDorName string, client *duplocloud.Client) (strin
 		tenantName = tenantIDorName
 		tenant, err := client.GetTenantByNameForUser(tenantName)
 		if tenant == nil || err != nil {
-			internal.Fatal(fmt.Sprintf("%s: tenant missing or not allowed", tenantName), err)
+			internal.Fatal(fmt.Sprintf("tenant '%s' missing or not allowed", tenantName), err)
 		} else {
 			tenantID = tenant.TenantID
 		}
@@ -234,7 +234,7 @@ func GetTenantIdAndName(tenantIDorName string, client *duplocloud.Client) (strin
 		tenantID = tenantIDorName
 		tenant, err := client.GetTenantForUser(tenantIDorName)
 		if tenant == nil || err != nil {
-			internal.Fatal(fmt.Sprintf("%s: tenant missing or not allowed", tenantID), err)
+			internal.Fatal(fmt.Sprintf("tenant '%s' missing or not allowed", tenantID), err)
 		} else {
 			tenantName = tenant.AccountName
 		}
