@@ -3,11 +3,17 @@ Command-line tools for JIT Duplo, AWS and Kubernetes access
 
 ## Installation
 
+### From release zip files
+
 See the *Releases* section of this repository.
 
 - Download a release artifact that matches your system's architecture.
 - Unzip the artifact.
 - Install the binaries somewhere in your `PATH`, such as the `/usr/local/bin` directory.
+
+### With Homebrew
+
+run `brew install duplocloud/tap/duplo-jit` from your terminal
 
 ## Usage
 
