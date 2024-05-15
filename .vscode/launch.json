@@ -71,7 +71,7 @@
             "args": [
                 "duplo",
                 "--host",
-                "https://test20.duplocloud.net",
+                "https://qa-govcloud.duplocloud.net",
                 "--interactive"
             ],
         },
@@ -86,7 +86,7 @@
                 "--plan",
                 "nonprod",
                 "--host",
-                "https://test20.duplocloud.net/",
+                "https://localhost:4200/",
                 "--interactive"
             ],
         },
@@ -99,9 +99,9 @@
             "args": [
                 "k8s",
                 "--tenant",
-                "nonprod",
+                "dev01",
                 "--host",
-                "https://test20.duplocloud.net/",
+                "http://localhost:4200/",
                 "--interactive"
             ],
         },
@@ -114,9 +114,9 @@
             "args": [
                 "k8s",
                 "--tenant",
-                "e5f31c01-64b0-4f42-a29d-78d437c9c132",
+                "1e2a96b9-c745-4c14-a037-6e25c3f42813",
                 "--host",
-                "https://test20.duplocloud.net/",
+                "http://localhost:4200/",
                 "--interactive"
             ],
         }

@@ -40,7 +40,7 @@ func duploClientAndOtpFlag(host, token, otp string, admin bool) (*duplocloud.Cli
 // MustDuploClient retrieves a duplo client (and credentials) or panics.
 func MustDuploClient(host, token string, interactive, admin bool) (client *duplocloud.Client, creds *DuploCredsOutput) {
 	needsOtp := false
-	cacheKey := strings.TrimPrefix(host, "https://")
+	cacheKey := strings.TrimPrefix(strings.TrimPrefix(host, "http://"), "https://")
 
 	// Try non-interactive auth first.
 	if token != "" {
@@ -64,7 +64,7 @@ func MustDuploClient(host, token string, interactive, admin bool) (client *duplo
 
 			// The client is not usable, so we have an error.
 		} else {
-			log.Fatalf("%s: authentication failure: failed to collect system features", os.Args[0])
+			log.Fatalf("%s: authentication failure: failed to collect system features(1)", os.Args[0])
 		}
 	}
 
@@ -91,7 +91,7 @@ func MustDuploClient(host, token string, interactive, admin bool) (client *duplo
 		}
 
 		// Get the token, or fail.
-		tokenResult := MustTokenInteractive(host, admin, "duplo-jit")
+		tokenResult := MustTokenInteractive("http://localhost:4200", admin, "duplo-jit")
 		if tokenResult.Token == "" {
 			log.Fatalf("%s: authentication failure: failed to get token interactively", os.Args[0])
 		}
@@ -99,7 +99,7 @@ func MustDuploClient(host, token string, interactive, admin bool) (client *duplo
 		// Get the client, or fail.
 		client, _ = duploClientAndOtpFlag(host, tokenResult.Token, tokenResult.OTP, admin)
 		if client == nil {
-			log.Fatalf("%s: authentication failure: failed to collect system features", os.Args[0])
+			log.Fatalf("%s: authentication failure: failed to collect system features(2)", os.Args[0])
 		}
 
 		// Build credentials.
