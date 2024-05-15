@@ -19,6 +19,20 @@
             ],
         },
         {
+            "name": "AWS Admin Local",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/duplo-jit/main.go",
+            "args": [
+                "aws",
+                "--admin",
+                "--host",
+                "http://localhost:4200",
+                "--interactive"
+            ],
+        },
+        {
             "name": "AWS Tenant Name",
             "type": "go",
             "request": "launch",
