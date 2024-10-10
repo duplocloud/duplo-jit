@@ -38,7 +38,7 @@ func duploClientAndOtpFlag(host, token, otp string, admin bool) (*duplocloud.Cli
 }
 
 // MustDuploClient retrieves a duplo client (and credentials) or panics.
-func MustDuploClient(host, token string, interactive, admin bool) (client *duplocloud.Client, creds *DuploCredsOutput) {
+func MustDuploClient(host, token string, interactive, admin bool, port int) (client *duplocloud.Client, creds *DuploCredsOutput) {
 	needsOtp := false
 	cacheKey := strings.TrimPrefix(host, "https://")
 
@@ -91,7 +91,7 @@ func MustDuploClient(host, token string, interactive, admin bool) (client *duplo
 		}
 
 		// Get the token, or fail.
-		tokenResult := MustTokenInteractive(host, admin, "duplo-jit")
+		tokenResult := MustTokenInteractive(host, admin, "duplo-jit", port)
 		if tokenResult.Token == "" {
 			log.Fatalf("%s: authentication failure: failed to get token interactively", os.Args[0])
 		}

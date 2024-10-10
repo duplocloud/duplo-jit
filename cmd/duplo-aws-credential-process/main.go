@@ -12,7 +12,7 @@ import (
 	"github.com/duplocloud/duplo-jit/internal"
 )
 
-func mustDuploClient(host, token string, interactive, admin bool) *duplocloud.Client {
+func mustDuploClient(host, token string, interactive, admin bool, port int) *duplocloud.Client {
 	otp := ""
 
 	// Possibly get a token from an interactive process.
@@ -21,7 +21,7 @@ func mustDuploClient(host, token string, interactive, admin bool) *duplocloud.Cl
 			log.Fatalf("%s: --token not specified and --interactive mode is disabled", os.Args[0])
 		}
 
-		tokenResult := internal.MustTokenInteractive(host, admin, "duplo-aws-credential-process")
+		tokenResult := internal.MustTokenInteractive(host, admin, "duplo-aws-credential-process", port)
 		token = tokenResult.Token
 		otp = tokenResult.OTP
 	}
@@ -50,6 +50,7 @@ func main() {
 	noCache := flag.Bool("no-cache", false, "Disable caching (not recommended)")
 	interactive := flag.Bool("interactive", false, "Allow getting Duplo credentials via an interactive browser session")
 	showVersion := flag.Bool("version", false, "Output version information and exit")
+	port := flag.Int("port", 0, "Port to use for the local web server")
 	flag.Parse()
 
 	// Output version information
@@ -92,7 +93,7 @@ func main() {
 
 		// Otherwise, get the credentials from Duplo.
 		if creds == nil {
-			client := mustDuploClient(*host, *token, *interactive, true)
+			client := mustDuploClient(*host, *token, *interactive, true, *port)
 			result, err := client.AdminGetJitAwsCredentials()
 			internal.DieIf(err, "failed to get credentials")
 			creds = internal.ConvertAwsCreds(result)
@@ -108,7 +109,7 @@ func main() {
 
 		// Otherwise, get the credentials from Duplo.
 		if creds == nil {
-			client := mustDuploClient(*host, *token, *interactive, true)
+			client := mustDuploClient(*host, *token, *interactive, true, *port)
 			result, err := client.AdminAwsGetJitAccess("duplo-ops")
 			internal.DieIf(err, "failed to get credentials")
 			creds = internal.ConvertAwsCreds(result)
@@ -129,7 +130,7 @@ func main() {
 
 		// Otherwise, get the credentials from Duplo.
 		if creds == nil {
-			client := mustDuploClient(*host, *token, *interactive, false)
+			client := mustDuploClient(*host, *token, *interactive, false, *port)
 
 			// If it doesn't look like a UUID, get the tenant ID from the name.
 			if len(*tenantID) < 32 {

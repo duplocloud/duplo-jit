@@ -60,10 +60,10 @@ func handlerTokenViaPost(baseUrl string, res http.ResponseWriter, req *http.Requ
 	return
 }
 
-func TokenViaPost(baseUrl string, admin bool, cmd string, timeout time.Duration) TokenResult {
+func TokenViaPost(baseUrl string, admin bool, cmd string, port int, timeout time.Duration) TokenResult {
 
 	// Create the listener on a random port.
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%s", port))
 	if err != nil {
 		return TokenResult{err: err}
 	}
@@ -127,8 +127,8 @@ func TokenViaPost(baseUrl string, admin bool, cmd string, timeout time.Duration)
 	}
 }
 
-func MustTokenInteractive(host string, admin bool, cmd string) (tokenResult TokenResult) {
-	tokenResult = TokenViaPost(host, admin, cmd, 180*time.Second)
+func MustTokenInteractive(host string, admin bool, cmd string, port int) (tokenResult TokenResult) {
+	tokenResult = TokenViaPost(host, admin, cmd, port, 180*time.Second)
 	DieIf(tokenResult.err, "failed to get token from interactive browser session")
 	return
 }
