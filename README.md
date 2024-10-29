@@ -53,6 +53,8 @@ Usage of duplo-jit:
     	Duplo API base URL
   -interactive
     	Allow getting Duplo credentials via an interactive browser session
+  -port
+    	Allow choosing a port for the interactive browser session. Default is random
   -no-cache
     	Disable caching (not recommended)
   -tenant string
@@ -73,6 +75,8 @@ Usage of duplo-jit:
     	Duplo API base URL
   -interactive
     	Allow getting Duplo credentials via an interactive browser session
+  -port
+    	Allow choosing a port for the interactive browser session. Default is random
   -no-cache
     	Disable caching (not recommended)
   -token string

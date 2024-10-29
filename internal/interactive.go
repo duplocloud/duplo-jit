@@ -63,7 +63,7 @@ func handlerTokenViaPost(baseUrl string, res http.ResponseWriter, req *http.Requ
 func TokenViaPost(baseUrl string, admin bool, cmd string, port int, timeout time.Duration) TokenResult {
 
 	// Create the listener on a random port.
-	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%s", port))
+	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
 	if err != nil {
 		return TokenResult{err: err}
 	}
