@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// Represents a connection to the Duplo API
+// Client represents a connection to the Duplo API
 type Client struct {
 	HTTPClient *http.Client
 	HostURL    string
@@ -66,7 +66,7 @@ func (e clientError) Response() map[string]interface{} {
 	return e.response
 }
 
-// Represents an error from an API call.
+// ClientError represents an error from an API call.
 type ClientError interface {
 	Error() string
 	Status() int
