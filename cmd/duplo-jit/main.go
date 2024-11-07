@@ -138,7 +138,7 @@ func main() {
 			// Identify the tenant name to use for the cache key.
 			var tenantName string
 			client, _ := internal.MustDuploClient(*host, *token, *interactive, false, *port)
-			*tenantID, tenantName = GetTenantIdAndName(*tenantID, client)
+			*tenantID, tenantName = getTenantIDAndName(*tenantID, client)
 
 			// Build the cache key.
 			cacheKey = strings.Join([]string{strings.TrimPrefix(*host, "https://"), "tenant", tenantName}, ",")
@@ -191,7 +191,7 @@ func main() {
 			// Identify the tenant name to use for the cache key.
 			var tenantName string
 			client, _ := internal.MustDuploClient(*host, *token, *interactive, false, *port)
-			*tenantID, tenantName = GetTenantIdAndName(*tenantID, client)
+			*tenantID, tenantName = getTenantIDAndName(*tenantID, client)
 
 			// Build the cache key.
 			cacheKey = strings.Join([]string{strings.TrimPrefix(*host, "https://"), "tenant", tenantName}, ",")
@@ -215,7 +215,7 @@ func main() {
 	}
 }
 
-func GetTenantIdAndName(tenantIDorName string, client *duplocloud.Client) (string, string) {
+func getTenantIDAndName(tenantIDorName string, client *duplocloud.Client) (string, string) {
 	var tenantID string
 	var tenantName string
 

@@ -100,12 +100,12 @@ func (c *Client) AdminGetK8sJitAccess(plan string) (*DuploPlanK8ClusterConfig, C
 	return &creds, nil
 }
 
-// AdminGetJITAwsCredentials retrieves just-in-time admin AWS credentials via the Duplo API.
+// AdminGetJitAwsCredentials retrieves just-in-time admin AWS credentials via the Duplo API.
 func (c *Client) AdminGetJitAwsCredentials() (*AwsJitCredentials, ClientError) {
 	return c.AdminAwsGetJitAccess("admin")
 }
 
-// TenantGetJITAwsCredentials retrieves just-in-time AWS credentials for a tenant via the Duplo API.
+// TenantGetJitAwsCredentials retrieves just-in-time AWS credentials for a tenant via the Duplo API.
 func (c *Client) TenantGetJitAwsCredentials(tenantID string) (*AwsJitCredentials, ClientError) {
 	creds := AwsJitCredentials{}
 	err := c.getAPI(
@@ -143,11 +143,12 @@ func (c *Client) ListTenantsForUser() (*[]UserTenant, ClientError) {
 	return &list, nil
 }
 
-func (c *Client) GetTenantFeatures(tenantId string) (*DuploTenantFeatures, ClientError) {
+// GetTenantFeatures retrieves a tenant's current configuration via the Duplo API.
+func (c *Client) GetTenantFeatures(tenantID string) (*DuploTenantFeatures, ClientError) {
 	features := DuploTenantFeatures{}
 	err := c.getAPI(
-		fmt.Sprintf("GetTenantFeatures(%s)", tenantId),
-		fmt.Sprintf("v3/features/tenant/%s", tenantId),
+		fmt.Sprintf("GetTenantFeatures(%s)", tenantID),
+		fmt.Sprintf("v3/features/tenant/%s", tenantID),
 		&features,
 	)
 	if err != nil {

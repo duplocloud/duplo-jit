@@ -98,7 +98,7 @@ func CacheGetAwsConfigOutput(cacheKey string) (creds *AwsConfigOutput) {
 
 		// Check credentials for expiry.
 		if creds != nil {
-			five_minutes_from_now := time.Now().UTC().Add(5 * time.Minute)
+			fiveMinutesFromNow := time.Now().UTC().Add(5 * time.Minute)
 			expiration, err := time.Parse(time.RFC3339, creds.Expiration)
 
 			// Invalid expiration?
@@ -107,7 +107,7 @@ func CacheGetAwsConfigOutput(cacheKey string) (creds *AwsConfigOutput) {
 				creds = nil
 
 				// Expires in five minutes or less?
-			} else if five_minutes_from_now.After(expiration) {
+			} else if fiveMinutesFromNow.After(expiration) {
 				creds = nil
 			}
 		}
@@ -189,9 +189,9 @@ func CacheGetK8sConfigOutput(cacheKey string, tenantName string) (creds *clienta
 		// Check credentials for expiry.
 		if creds != nil {
 			// Expires in five minutes or less?
-			five_minutes_from_now := time.Now().UTC().Add(5 * time.Minute)
+			fiveMinutesFromNow := time.Now().UTC().Add(5 * time.Minute)
 			expiration := creds.Status.ExpirationTimestamp.Time
-			if five_minutes_from_now.After(expiration) {
+			if fiveMinutesFromNow.After(expiration) {
 				creds = nil
 			}
 		}
