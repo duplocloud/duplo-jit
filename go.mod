@@ -1,6 +1,6 @@
 module github.com/duplocloud/duplo-jit
 
-go 1.21
+go 1.23
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.23.5
