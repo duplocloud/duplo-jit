@@ -31,6 +31,7 @@ func main() {
 	debug := flag.Bool("debug", false, "Turn on verbose (debugging) output")
 	noCache := flag.Bool("no-cache", false, "Disable caching (not recommended)")
 	interactive := flag.Bool("interactive", false, "Allow getting Duplo credentials via an interactive browser session")
+	port := flag.Int("port", 0, "Port to use for the local web server")
 	showVersion := flag.Bool("version", false, "Output version information and exit")
 	admin = new(bool)
 	duploOps = new(bool)
@@ -105,7 +106,7 @@ func main() {
 
 			// Otherwise, get the credentials from Duplo.
 			if creds == nil {
-				client, _ := internal.MustDuploClient(*host, *token, *interactive, true)
+				client, _ := internal.MustDuploClient(*host, *token, *interactive, true, *port)
 				result, err := client.AdminGetJitAwsCredentials()
 				internal.DieIf(err, "failed to get credentials")
 				creds = internal.ConvertAwsCreds(result)
@@ -121,7 +122,7 @@ func main() {
 
 			// Otherwise, get the credentials from Duplo.
 			if creds == nil {
-				client, _ := internal.MustDuploClient(*host, *token, *interactive, true)
+				client, _ := internal.MustDuploClient(*host, *token, *interactive, true, *port)
 				result, err := client.AdminAwsGetJitAccess("duplo-ops")
 				internal.DieIf(err, "failed to get credentials")
 				creds = internal.ConvertAwsCreds(result)
@@ -136,8 +137,8 @@ func main() {
 
 			// Identify the tenant name to use for the cache key.
 			var tenantName string
-			client, _ := internal.MustDuploClient(*host, *token, *interactive, false)
-			*tenantID, tenantName = GetTenantIdAndName(*tenantID, client)
+			client, _ := internal.MustDuploClient(*host, *token, *interactive, false, *port)
+			*tenantID, tenantName = getTenantIDAndName(*tenantID, client)
 
 			// Build the cache key.
 			cacheKey = strings.Join([]string{strings.TrimPrefix(*host, "https://"), "tenant", tenantName}, ",")
@@ -158,7 +159,7 @@ func main() {
 		internal.OutputAwsCreds(creds, cacheKey)
 
 	case "duplo":
-		_, creds := internal.MustDuploClient(*host, *token, *interactive, true)
+		_, creds := internal.MustDuploClient(*host, *token, *interactive, true, *port)
 		internal.OutputDuploCreds(creds)
 
 	case "k8s":
@@ -174,7 +175,7 @@ func main() {
 
 			// Otherwise, get the credentials from Duplo.
 			if creds == nil {
-				client, _ := internal.MustDuploClient(*host, *token, *interactive, true)
+				client, _ := internal.MustDuploClient(*host, *token, *interactive, true, *port)
 				result, err := client.AdminGetK8sJitAccess(*planID)
 				internal.DieIf(err, "failed to get credentials")
 				creds = internal.ConvertK8sCreds(result)
@@ -189,8 +190,8 @@ func main() {
 
 			// Identify the tenant name to use for the cache key.
 			var tenantName string
-			client, _ := internal.MustDuploClient(*host, *token, *interactive, false)
-			*tenantID, tenantName = GetTenantIdAndName(*tenantID, client)
+			client, _ := internal.MustDuploClient(*host, *token, *interactive, false, *port)
+			*tenantID, tenantName = getTenantIDAndName(*tenantID, client)
 
 			// Build the cache key.
 			cacheKey = strings.Join([]string{strings.TrimPrefix(*host, "https://"), "tenant", tenantName}, ",")
@@ -214,7 +215,7 @@ func main() {
 	}
 }
 
-func GetTenantIdAndName(tenantIDorName string, client *duplocloud.Client) (string, string) {
+func getTenantIDAndName(tenantIDorName string, client *duplocloud.Client) (string, string) {
 	var tenantID string
 	var tenantName string
 
@@ -224,7 +225,7 @@ func GetTenantIdAndName(tenantIDorName string, client *duplocloud.Client) (strin
 		tenantName = tenantIDorName
 		tenant, err := client.GetTenantByNameForUser(tenantName)
 		if tenant == nil || err != nil {
-			internal.Fatal(fmt.Sprintf("%s: tenant missing or not allowed", tenantName), err)
+			internal.Fatal(fmt.Sprintf("tenant '%s' missing or not allowed", tenantName), err)
 		} else {
 			tenantID = tenant.TenantID
 		}
@@ -234,7 +235,7 @@ func GetTenantIdAndName(tenantIDorName string, client *duplocloud.Client) (strin
 		tenantID = tenantIDorName
 		tenant, err := client.GetTenantForUser(tenantIDorName)
 		if tenant == nil || err != nil {
-			internal.Fatal(fmt.Sprintf("%s: tenant missing or not allowed", tenantID), err)
+			internal.Fatal(fmt.Sprintf("tenant '%s' missing or not allowed", tenantID), err)
 		} else {
 			tenantName = tenant.AccountName
 		}
