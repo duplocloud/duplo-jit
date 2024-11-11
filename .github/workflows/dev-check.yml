@@ -47,7 +47,7 @@ jobs:
         if: steps.git-check.outputs.modified == 'true'
         run: |
           git config --global user.name 'Duplo Github Bot'
-          git config --global user.email 'joe+github-bot@duplocloud.net'
+          git config --global user.email 'infra+github-bot@duplocloud.net'
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
           git commit -am "lint: go fmt"
           git push
