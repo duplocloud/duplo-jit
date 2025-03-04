@@ -26,13 +26,14 @@ func main() {
 	log.SetOutput(os.Stderr)
 
 	// Common command-line arguments.
-	host := flag.String("host", "", "Duplo API base URL")
-	token := flag.String("token", "", "Duplo API token")
+	host := flag.String("host", "", "DuploCloud base URL")
+	token := flag.String("token", "", "DuploCloud API token")
 	debug := flag.Bool("debug", false, "Turn on verbose (debugging) output")
 	noCache := flag.Bool("no-cache", false, "Disable caching (not recommended)")
 	interactive := flag.Bool("interactive", false, "Allow getting Duplo credentials via an interactive browser session")
 	port := flag.Int("port", 0, "Port to use for the local web server")
 	showVersion := flag.Bool("version", false, "Output version information and exit")
+	apiHost := flag.String("api-host", "", "Specify an alternate DuploCloud API base URL if it differs from the UI host (defaults to the value of --host if omitted)")
 	admin = new(bool)
 	duploOps = new(bool)
 
@@ -76,12 +77,33 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Refuse to call APIs over anything but https://
-	// Trim a trailing slash.
-	if host == nil || !strings.HasPrefix(*host, "https://") {
-		log.Fatalf("%s: %s", os.Args[0], "--host must be present and start with https://")
+	// Validate the host.
+	if *host == "" {
+		log.Fatalf("%s: %s", os.Args[0], "--host must be present")
+	} else if strings.HasPrefix(*host, "http://localhost") {
+		fmt.Printf("Using developer host %s\n", *host)
+	} else if !strings.HasPrefix(*host, "https://") {
+		// Refuse to call APIs over anything but https://
+		log.Fatalf("%s: %s", os.Args[0], "--host must start with https://")
 	}
+
+	// Trim a trailing slash.
 	*host = strings.TrimSuffix(*host, "/")
+
+	// Validate the api-host if provided.
+	if *apiHost != "" {
+		if strings.HasPrefix(*apiHost, "http://localhost") {
+			fmt.Printf("Using developer api-host %s\n", *apiHost)
+		} else if !strings.HasPrefix(*apiHost, "https://") {
+			// Refuse to call APIs over anything but https://
+			log.Fatalf("%s: %s", os.Args[0], "--api-host must start with https://")
+		}
+		// Trim a trailing slash.
+		*apiHost = strings.TrimSuffix(*apiHost, "/")
+	} else {
+		// By default, the api host is the same as the UI host.
+		apiHost = host
+	}
 
 	// Possibly enable debugging
 	if *debug {
@@ -92,21 +114,22 @@ func main() {
 	internal.MustInitCache("duplo-jit", *noCache)
 
 	// Get AWS credentials and output them
+	cacheKey := internal.GetHostCacheKey(*host)
+
 	switch cmd {
 	case "aws":
 		var creds *internal.AwsConfigOutput
-		var cacheKey string
 		if *admin {
 
 			// Build the cache key
-			cacheKey = strings.Join([]string{strings.TrimPrefix(*host, "https://"), "admin"}, ",")
+			cacheKey = strings.Join([]string{cacheKey, "admin"}, ",")
 
 			// Try to find credentials from the cache.
 			creds = internal.CacheGetAwsConfigOutput(cacheKey)
 
 			// Otherwise, get the credentials from Duplo.
 			if creds == nil {
-				client, _ := internal.MustDuploClient(*host, *token, *interactive, true, *port)
+				client, _ := internal.MustDuploClient(*host, *apiHost, *token, *interactive, true, *port)
 				result, err := client.AdminGetJitAwsCredentials()
 				internal.DieIf(err, "failed to get credentials")
 				creds = internal.ConvertAwsCreds(result)
@@ -115,14 +138,14 @@ func main() {
 		} else if *duploOps {
 
 			// Build the cache key
-			cacheKey = strings.Join([]string{strings.TrimPrefix(*host, "https://"), "duplo-ops"}, ",")
+			cacheKey = strings.Join([]string{cacheKey, "duplo-ops"}, ",")
 
 			// Try to find credentials from the cache.
 			creds = internal.CacheGetAwsConfigOutput(cacheKey)
 
 			// Otherwise, get the credentials from Duplo.
 			if creds == nil {
-				client, _ := internal.MustDuploClient(*host, *token, *interactive, true, *port)
+				client, _ := internal.MustDuploClient(*host, *apiHost, *token, *interactive, true, *port)
 				result, err := client.AdminAwsGetJitAccess("duplo-ops")
 				internal.DieIf(err, "failed to get credentials")
 				creds = internal.ConvertAwsCreds(result)
@@ -137,11 +160,11 @@ func main() {
 
 			// Identify the tenant name to use for the cache key.
 			var tenantName string
-			client, _ := internal.MustDuploClient(*host, *token, *interactive, false, *port)
+			client, _ := internal.MustDuploClient(*host, *apiHost, *token, *interactive, false, *port)
 			*tenantID, tenantName = getTenantIDAndName(*tenantID, client)
 
 			// Build the cache key.
-			cacheKey = strings.Join([]string{strings.TrimPrefix(*host, "https://"), "tenant", tenantName}, ",")
+			cacheKey = strings.Join([]string{cacheKey, "tenant", tenantName}, ",")
 
 			// Try to find credentials from the cache.
 			creds = internal.CacheGetAwsConfigOutput(cacheKey)
@@ -159,23 +182,22 @@ func main() {
 		internal.OutputAwsCreds(creds, cacheKey)
 
 	case "duplo":
-		_, creds := internal.MustDuploClient(*host, *token, *interactive, true, *port)
+		_, creds := internal.MustDuploClient(*host, *apiHost, *token, *interactive, true, *port)
 		internal.OutputDuploCreds(creds)
 
 	case "k8s":
 		var creds *clientauthv1beta1.ExecCredential
-		var cacheKey string
 		if planID != nil && *planID != "" {
 
 			// Build the cache key
-			cacheKey = strings.Join([]string{strings.TrimPrefix(*host, "https://"), "plan", *planID}, ",")
+			cacheKey = strings.Join([]string{cacheKey, "plan", *planID}, ",")
 
 			// Try to find credentials from the cache.
 			creds = internal.CacheGetK8sConfigOutput(cacheKey, "")
 
 			// Otherwise, get the credentials from Duplo.
 			if creds == nil {
-				client, _ := internal.MustDuploClient(*host, *token, *interactive, true, *port)
+				client, _ := internal.MustDuploClient(*host, *apiHost, *token, *interactive, true, *port)
 				result, err := client.AdminGetK8sJitAccess(*planID)
 				internal.DieIf(err, "failed to get credentials")
 				creds = internal.ConvertK8sCreds(result)
@@ -190,11 +212,11 @@ func main() {
 
 			// Identify the tenant name to use for the cache key.
 			var tenantName string
-			client, _ := internal.MustDuploClient(*host, *token, *interactive, false, *port)
+			client, _ := internal.MustDuploClient(*host, *apiHost, *token, *interactive, false, *port)
 			*tenantID, tenantName = getTenantIDAndName(*tenantID, client)
 
 			// Build the cache key.
-			cacheKey = strings.Join([]string{strings.TrimPrefix(*host, "https://"), "tenant", tenantName}, ",")
+			cacheKey = strings.Join([]string{cacheKey, "tenant", tenantName}, ",")
 
 			// Try to find credentials from the cache.
 			creds = internal.CacheGetK8sConfigOutput(cacheKey, tenantName)

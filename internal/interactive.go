@@ -68,7 +68,7 @@ func handlerToken(baseUrl string, localPort int, admin bool, res http.ResponseWr
 	return false, nil
 }
 
-func TokenViaPost(baseUrl string, admin bool, cmd string, port int, timeout time.Duration) TokenResult {
+func TokenViaListener(baseUrl string, admin bool, cmd string, port int, timeout time.Duration) TokenResult {
 
 	// Create the listener on a random port.
 	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
@@ -86,7 +86,7 @@ func TokenViaPost(baseUrl string, admin bool, cmd string, port int, timeout time
 
 		// legacy API, with no facility for OTP
 		mux.HandleFunc("/", func(res http.ResponseWriter, req *http.Request) {
-			completed, tokenBytes := handlerToken(baseUrl, port, admin, res, req)
+			completed, tokenBytes := handlerToken(baseUrl, localPort, admin, res, req)
 
 			// If we are done, send the result to the channel.
 			if completed {
@@ -96,7 +96,7 @@ func TokenViaPost(baseUrl string, admin bool, cmd string, port int, timeout time
 
 		// API with facility for OTP
 		mux.HandleFunc("/v2/callbackWithOtp", func(res http.ResponseWriter, req *http.Request) {
-			completed, tokenBytes := handlerToken(baseUrl, port, admin, res, req)
+			completed, tokenBytes := handlerToken(baseUrl, localPort, admin, res, req)
 
 			// If we are done, send the result to the channel.
 			if completed {
@@ -136,7 +136,7 @@ func TokenViaPost(baseUrl string, admin bool, cmd string, port int, timeout time
 }
 
 func MustTokenInteractive(host string, admin bool, cmd string, port int) (tokenResult TokenResult) {
-	tokenResult = TokenViaPost(host, admin, cmd, port, 180*time.Second)
+	tokenResult = TokenViaListener(host, admin, cmd, port, 180*time.Second)
 	DieIf(tokenResult.err, "failed to get token from interactive browser session")
 	return
 }
