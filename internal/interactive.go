@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/skratchdot/open-golang/open"
@@ -31,6 +32,12 @@ func handlerToken(baseUrl string, localPort int, admin bool, res http.ResponseWr
 			http.Error(res, "missing token", http.StatusBadRequest)
 			return true, nil
 		}
+		// URL-decode the token.
+		decodedToken, err := url.QueryUnescape(token)
+		if err != nil {
+			http.Error(res, "invalid token encoding", http.StatusBadRequest)
+			return true, nil
+		}
 		// Build the redirect URL back to Duplo with success=true.
 		adminFlag := ""
 		if admin {
@@ -39,7 +46,7 @@ func handlerToken(baseUrl string, localPort int, admin bool, res http.ResponseWr
 		redirectURL := fmt.Sprintf("%s/app/user/verify-token?localAppName=duplo-jit&localPort=%d%s&success=true", baseUrl, localPort, adminFlag)
 		// Issue an HTTP redirect.
 		http.Redirect(res, req, redirectURL, http.StatusFound)
-		return true, []byte(token)
+		return true, []byte(decodedToken)
 	}
 
 	// If it's a POST request, use legacy behavior.
