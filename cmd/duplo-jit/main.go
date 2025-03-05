@@ -81,7 +81,7 @@ func main() {
 	if *host == "" {
 		log.Fatalf("%s: %s", os.Args[0], "--host must be present")
 	} else if strings.HasPrefix(*host, "http://localhost") {
-		fmt.Printf("Using developer host %s\n", *host)
+		fmt.Fprintf(os.Stderr, "Using developer host %s\n", *host)
 	} else if !strings.HasPrefix(*host, "https://") {
 		// Refuse to call APIs over anything but https://
 		log.Fatalf("%s: %s", os.Args[0], "--host must start with https://")
