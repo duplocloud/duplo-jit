@@ -78,13 +78,14 @@ func main() {
 	}
 
 	// Validate the host.
+	const fatalFmt = "%s: %s"
 	if *host == "" {
-		log.Fatalf("%s: %s", os.Args[0], "--host must be present")
+		log.Fatalf(fatalFmt, os.Args[0], "--host must be present")
 	} else if strings.HasPrefix(*host, "http://localhost") {
 		fmt.Fprintf(os.Stderr, "Using developer host %s\n", *host)
 	} else if !strings.HasPrefix(*host, "https://") {
 		// Refuse to call APIs over anything but https://
-		log.Fatalf("%s: %s", os.Args[0], "--host must start with https://")
+		log.Fatalf(fatalFmt, os.Args[0], "--host must start with https://")
 	}
 
 	// Trim a trailing slash.
@@ -96,7 +97,7 @@ func main() {
 			fmt.Printf("Using developer api-host %s\n", *apiHost)
 		} else if !strings.HasPrefix(*apiHost, "https://") {
 			// Refuse to call APIs over anything but https://
-			log.Fatalf("%s: %s", os.Args[0], "--api-host must start with https://")
+			log.Fatalf(fatalFmt, os.Args[0], "--api-host must start with https://")
 		}
 		// Trim a trailing slash.
 		*apiHost = strings.TrimSuffix(*apiHost, "/")
