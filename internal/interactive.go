@@ -107,16 +107,7 @@ func TokenViaListener(baseUrl string, admin bool, cmd string, port int, timeout 
 
 			// If we are done, send the result to the channel.
 			if completed {
-				rp := TokenResult{}
-				if len(tokenBytes) == 0 {
-					rp.err = errors.New("canceled")
-				} else {
-					err = json.Unmarshal(tokenBytes, &rp)
-					if err != nil {
-						message := fmt.Sprintf("%s: cannot unmarshal response from JSON: %s", "/v2/callbackWithOtp", err.Error())
-						rp.err = errors.New(message)
-					}
-				}
+				rp := getTokenResult(tokenBytes)
 				done <- rp
 			}
 		})
@@ -125,11 +116,7 @@ func TokenViaListener(baseUrl string, admin bool, cmd string, port int, timeout 
 	}()
 
 	// Open the browser.
-	adminFlag := ""
-	if admin {
-		adminFlag = "&isAdmin=true"
-	}
-	url := fmt.Sprintf("%s/app/user/verify-token?localAppName=%s&localPort=%d%s&redirect=true", baseUrl, cmd, localPort, adminFlag)
+	url := getInteractiveUrl(admin, baseUrl, cmd, localPort)
 	err = open.Run(url)
 	DieIf(err, "failed to open interactive browser session")
 
@@ -140,6 +127,29 @@ func TokenViaListener(baseUrl string, admin bool, cmd string, port int, timeout 
 	case <-time.After(timeout):
 		return TokenResult{err: errors.New("timed out")}
 	}
+}
+
+func getTokenResult(tokenBytes []byte) TokenResult {
+	tokenResult := TokenResult{}
+	if len(tokenBytes) == 0 {
+		tokenResult.err = errors.New("canceled")
+	} else {
+		err := json.Unmarshal(tokenBytes, &tokenResult)
+		if err != nil {
+			message := fmt.Sprintf("%s: cannot unmarshal response from JSON: %s", "/v2/callbackWithOtp", err.Error())
+			tokenResult.err = errors.New(message)
+		}
+	}
+	return tokenResult
+}
+
+func getInteractiveUrl(admin bool, baseUrl string, cmd string, localPort int) string {
+	adminFlag := ""
+	if admin {
+		adminFlag = "&isAdmin=true"
+	}
+	url := fmt.Sprintf("%s/app/user/verify-token?localAppName=%s&localPort=%d%s&redirect=true", baseUrl, cmd, localPort, adminFlag)
+	return url
 }
 
 func MustTokenInteractive(host string, admin bool, cmd string, port int) (tokenResult TokenResult) {
