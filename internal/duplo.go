@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
-	"strings"
 
 	"github.com/duplocloud/duplo-jit/duplocloud"
 )
@@ -38,14 +38,14 @@ func duploClientAndOtpFlag(host, token, otp string, admin bool) (*duplocloud.Cli
 }
 
 // MustDuploClient retrieves a duplo client (and credentials) or panics.
-func MustDuploClient(host, token string, interactive, admin bool, port int) (client *duplocloud.Client, creds *DuploCredsOutput) {
+func MustDuploClient(host string, apiHost string, token string, interactive bool, admin bool, port int) (client *duplocloud.Client, creds *DuploCredsOutput) {
 	needsOtp := false
-	cacheKey := strings.TrimPrefix(host, "https://")
+	cacheKey := GetHostCacheKey(host)
 
 	// Try non-interactive auth first.
 	if token != "" {
 		cacheRemoveEntry(cacheKey, "duplo") // never cache explicitly passed creds
-		client, needsOtp = duploClientAndOtpFlag(host, token, "", admin)
+		client, needsOtp = duploClientAndOtpFlag(apiHost, token, "", admin)
 
 		// If OTP is needed, we can only continue if interactive auth is allowed.
 		if needsOtp {
@@ -75,9 +75,9 @@ func MustDuploClient(host, token string, interactive, admin bool, port int) (cli
 
 	// Next, we load and validate Duplo credentials from the cache.
 	if token == "" {
-		creds = CacheGetDuploOutput(cacheKey, host)
+		creds = CacheGetDuploOutput(cacheKey, apiHost)
 		if creds != nil {
-			client, _ = duploClientAndOtpFlag(host, creds.DuploToken, "", admin)
+			client, _ = duploClientAndOtpFlag(apiHost, creds.DuploToken, "", admin)
 		}
 	}
 
@@ -97,7 +97,7 @@ func MustDuploClient(host, token string, interactive, admin bool, port int) (cli
 		}
 
 		// Get the client, or fail.
-		client, _ = duploClientAndOtpFlag(host, tokenResult.Token, tokenResult.OTP, admin)
+		client, _ = duploClientAndOtpFlag(apiHost, tokenResult.Token, tokenResult.OTP, admin)
 		if client == nil {
 			log.Fatalf("%s: authentication failure: failed to collect system features", os.Args[0])
 		}
@@ -119,14 +119,22 @@ func MustDuploClient(host, token string, interactive, admin bool, port int) (cli
 	return
 }
 
+func GetHostCacheKey(host string) string {
+	u, err := url.Parse(host)
+	if err != nil {
+		log.Fatalf("failed to parse host: %v", err)
+	}
+	return u.Hostname()
+}
+
 func OutputDuploCreds(creds *DuploCredsOutput) {
 
 	// Convert the source to JSON
-	json, err := json.Marshal(creds)
+	jsonBytes, err := json.Marshal(creds)
 	DieIf(err, "cannot marshal to JSON")
 
 	// Write the creds to the output.
-	os.Stdout.Write(json)
+	os.Stdout.Write(jsonBytes)
 	os.Stdout.WriteString("\n")
 }
 
