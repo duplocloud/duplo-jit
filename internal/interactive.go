@@ -154,6 +154,6 @@ func getInteractiveUrl(admin bool, baseUrl string, cmd string, localPort int) st
 
 func MustTokenInteractive(host string, admin bool, cmd string, port int) (tokenResult TokenResult) {
 	tokenResult = TokenViaListener(host, admin, cmd, port, 180*time.Second)
-	DieIf(tokenResult.err, "failed to get token from interactive browser session")
+	DieIf(tokenResult.err, "failed to get token from interactive session (timed out or canceled)")
 	return
 }
