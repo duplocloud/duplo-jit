@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/skratchdot/open-golang/open"
@@ -18,49 +19,63 @@ type TokenResult struct {
 	err   error
 }
 
-func handlerTokenViaPost(baseUrl string, res http.ResponseWriter, req *http.Request) (completed bool, bytes []byte) {
-	var err error
-	status := "ok"
-
+func handlerToken(baseUrl string, localPort int, admin bool, res http.ResponseWriter, req *http.Request) (completed bool, tokenBytes []byte) {
 	// Only allow the specified Duplo to give us creds.
 	res.Header().Add("Access-Control-Allow-Origin", baseUrl)
-	res.Header().Add("Access-Control-Allow-Headers", "X-Requested-With")
-	res.Header().Add("Access-Control-Allow-Headers", "Accept")
-	res.Header().Add("Access-Control-Allow-Headers", "Content-Type")
+	res.Header().Add("Access-Control-Allow-Headers", "X-Requested-With, Accept, Content-Type")
 
-	// A POST means we are done, whether good or bad.
+	// Check if this is a GET request carrying the token in the query string.
+	if req.Method == "GET" {
+		token := req.URL.Query().Get("t")
+		if token == "" {
+			// If the token is missing, return an error response.
+			http.Error(res, "missing token", http.StatusBadRequest)
+			return true, nil
+		}
+		// URL-decode the token.
+		decodedToken, err := url.QueryUnescape(token)
+		if err != nil {
+			http.Error(res, "invalid token encoding", http.StatusBadRequest)
+			return true, nil
+		}
+		// Build the redirect URL back to Duplo with success=true.
+		adminFlag := ""
+		if admin {
+			adminFlag = "&isAdmin=true"
+		}
+		redirectURL := fmt.Sprintf("%s/app/user/verify-token?localAppName=duplo-jit&localPort=%d%s&success=true", baseUrl, localPort, adminFlag)
+		// Issue an HTTP redirect.
+		http.Redirect(res, req, redirectURL, http.StatusFound)
+		return true, []byte(decodedToken)
+	}
+
+	// If it's a POST request, use legacy behavior.
 	if req.Method == "POST" {
 		defer req.Body.Close()
-
-		completed = true
-
-		// Authorize the origin, and get the POST body.
+		// Authorize by checking the Origin.
 		origin := req.Header.Get("Origin")
+		var err error
 		if origin != baseUrl {
 			err = fmt.Errorf("unauthorized origin: %s", origin)
 		} else {
-			bytes, err = io.ReadAll(req.Body)
+			tokenBytes, err = io.ReadAll(req.Body)
 		}
-	}
-
-	// Send the proper response.
-	if completed {
+		completed = true
+		status := "done"
 		if err != nil {
 			res.WriteHeader(500)
 			status = "failed"
-		} else {
-			status = "done"
 		}
+		_, _ = fmt.Fprintf(res, "\"%s\"\n", status)
+		return completed, tokenBytes
 	}
 
-	// TODO: output any errors to the console
-
-	_, _ = fmt.Fprintf(res, "\"%s\"\n", status)
-
-	return
+	// For any other method, return a 405 Method Not Allowed.
+	res.WriteHeader(http.StatusMethodNotAllowed)
+	return false, nil
 }
 
-func TokenViaPost(baseUrl string, admin bool, cmd string, port int, timeout time.Duration) TokenResult {
+func TokenViaListener(baseUrl string, admin bool, cmd string, port int, timeout time.Duration) TokenResult {
 
 	// Create the listener on a random port.
 	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
@@ -78,30 +93,21 @@ func TokenViaPost(baseUrl string, admin bool, cmd string, port int, timeout time
 
 		// legacy API, with no facility for OTP
 		mux.HandleFunc("/", func(res http.ResponseWriter, req *http.Request) {
-			completed, bytes := handlerTokenViaPost(baseUrl, res, req)
+			completed, tokenBytes := handlerToken(baseUrl, localPort, admin, res, req)
 
 			// If we are done, send the result to the channel.
 			if completed {
-				done <- TokenResult{Token: string(bytes), err: err}
+				done <- TokenResult{Token: string(tokenBytes), err: err}
 			}
 		})
 
 		// API with facility for OTP
 		mux.HandleFunc("/v2/callbackWithOtp", func(res http.ResponseWriter, req *http.Request) {
-			completed, bytes := handlerTokenViaPost(baseUrl, res, req)
+			completed, tokenBytes := handlerToken(baseUrl, localPort, admin, res, req)
 
 			// If we are done, send the result to the channel.
 			if completed {
-				rp := TokenResult{}
-				if len(bytes) == 0 {
-					rp.err = errors.New("canceled")
-				} else {
-					err = json.Unmarshal(bytes, &rp)
-					if err != nil {
-						message := fmt.Sprintf("%s: cannot unmarshal response from JSON: %s", "/v2/callbackWithOtp", err.Error())
-						rp.err = errors.New(message)
-					}
-				}
+				rp := getTokenResult(tokenBytes)
 				done <- rp
 			}
 		})
@@ -110,11 +116,7 @@ func TokenViaPost(baseUrl string, admin bool, cmd string, port int, timeout time
 	}()
 
 	// Open the browser.
-	adminFlag := ""
-	if admin {
-		adminFlag = "&isAdmin=true"
-	}
-	url := fmt.Sprintf("%s/app/user/verify-token?localAppName=%s&localPort=%d%s", baseUrl, cmd, localPort, adminFlag)
+	url := getInteractiveUrl(admin, baseUrl, cmd, localPort)
 	err = open.Run(url)
 	DieIf(err, "failed to open interactive browser session")
 
@@ -127,8 +129,31 @@ func TokenViaPost(baseUrl string, admin bool, cmd string, port int, timeout time
 	}
 }
 
+func getTokenResult(tokenBytes []byte) TokenResult {
+	tokenResult := TokenResult{}
+	if len(tokenBytes) == 0 {
+		tokenResult.err = errors.New("canceled")
+	} else {
+		err := json.Unmarshal(tokenBytes, &tokenResult)
+		if err != nil {
+			message := fmt.Sprintf("%s: cannot unmarshal response from JSON: %s", "/v2/callbackWithOtp", err.Error())
+			tokenResult.err = errors.New(message)
+		}
+	}
+	return tokenResult
+}
+
+func getInteractiveUrl(admin bool, baseUrl string, cmd string, localPort int) string {
+	adminFlag := ""
+	if admin {
+		adminFlag = "&isAdmin=true"
+	}
+	url := fmt.Sprintf("%s/app/user/verify-token?localAppName=%s&localPort=%d%s&redirect=true", baseUrl, cmd, localPort, adminFlag)
+	return url
+}
+
 func MustTokenInteractive(host string, admin bool, cmd string, port int) (tokenResult TokenResult) {
-	tokenResult = TokenViaPost(host, admin, cmd, port, 180*time.Second)
+	tokenResult = TokenViaListener(host, admin, cmd, port, 180*time.Second)
 	DieIf(tokenResult.err, "failed to get token from interactive browser session")
 	return
 }

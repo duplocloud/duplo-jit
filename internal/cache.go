@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -57,20 +58,25 @@ func cacheReadUnmarshal(file string, target interface{}) bool {
 // It returns the JSON bytes and ignores cache write failures.
 func cacheWriteMustMarshal(file string, source interface{}) []byte {
 	// Convert the source to JSON
-	json, err := json.Marshal(source)
+	var buf bytes.Buffer
+	encoder := json.NewEncoder(&buf)
+	encoder.SetEscapeHTML(false)
+	err := encoder.Encode(source)
 	DieIf(err, "cannot marshal to JSON")
 
-	// Cache the JSON
+	// Remove the trailing newline added by encoder.Encode.
+	jsonBytes := bytes.TrimSuffix(buf.Bytes(), []byte("\n"))
+
+	// Cache the JSON if caching is enabled
 	if !noCache && cacheDir != "" {
 		file = filepath.Join(cacheDir, file)
-
-		err = os.WriteFile(file, json, 0600)
+		err = os.WriteFile(file, jsonBytes, 0600)
 		if err != nil {
 			log.Printf("warning: %s: unable to write to cache", file)
 		}
 	}
 
-	return json
+	return jsonBytes
 }
 
 func cacheRemoveEntry(cacheKey, cacheType string) {
