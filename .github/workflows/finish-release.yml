@@ -10,7 +10,7 @@ env:
   git_email: infra+github-bot@duplocloud.net
 jobs:
   finish-release:
-    if: github.event.pull_request.merged == true && (startsWith(github.head_ref, 'refs/heads/release/') || startsWith(github.head_ref, 'release/'))
+    if: github.event.pull_request.merged == true && (startsWith(github.head_ref, 'refs/heads/release/') || startsWith(github.head_ref, 'release/') || startsWith(github.head_ref, 'refs/heads/hotfix/') || startsWith(github.head_ref, 'hotfix/'))
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
