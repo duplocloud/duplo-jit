@@ -193,8 +193,7 @@ func (c *Client) doAPI(verb string, apiName string, apiPath string, rp interface
 			return nil
 		}
 		message := fmt.Sprintf("%s: received unexpected response: %s", apiName, bodyString)
-		//nolint:govet
-		logf(TRACE, message)
+		logf(TRACE, "%s", message)
 		return appHttpError(req, message)
 	}
 
@@ -202,8 +201,7 @@ func (c *Client) doAPI(verb string, apiName string, apiPath string, rp interface
 	err = json.Unmarshal(body, rp)
 	if err != nil {
 		message := fmt.Sprintf("%s: cannot unmarshal response from JSON: %s", apiName, err.Error())
-		//nolint:govet
-		logf(TRACE, message)
+		logf(TRACE, "%s", message)
 		return newHttpError(req, -1, message)
 	}
 	return nil
