@@ -1,3 +1,8 @@
+version: 2
+
+git:
+  tag_sort: -version:refname
+
 before:
   hooks:
     - go mod tidy
@@ -49,13 +54,13 @@ builds:
         goarch: '386'
     binary: 'duplo-aws-credential-process'
 archives:
-  - format: zip
+  - id: default
+    format: zip
     name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
 checksum:
   name_template: '{{ .ProjectName }}_{{ .Version }}_SHA256SUMS'
   algorithm: sha256
 changelog:
-  skip: false
   filters:
     exclude:
       - '^\[release\] '
@@ -73,7 +78,7 @@ brews:
   - name: duplo-jit
     goarm: 6
     goamd64: v1
-    tap:
+    repository:
       owner: duplocloud
       name: homebrew-tap
       branch: main
@@ -83,9 +88,8 @@ brews:
       name: duplo-bot
       email: infra+github-bot@duplocloud.net
     commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
-    folder: Formula
     homepage: "https://github.com/duplocloud/duplo-jit"
     description: "Command-line tools for JIT Duplo, AWS and Kubernetes access"
     license: "MIT"
     test: |
-      system "duplo-jit version"
+      system "#{bin}/duplo-jit", "version"
