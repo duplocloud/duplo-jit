@@ -134,8 +134,8 @@ func OutputDuploCreds(creds *DuploCredsOutput) {
 	DieIf(err, "cannot marshal to JSON")
 
 	// Write the creds to the output.
-	os.Stdout.Write(jsonBytes)
-	os.Stdout.WriteString("\n")
+	_, _ = os.Stdout.Write(jsonBytes)
+	_, _ = os.Stdout.WriteString("\n")
 }
 
 func PingDuploCreds(creds *DuploCredsOutput, host string) error {

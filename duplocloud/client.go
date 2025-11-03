@@ -92,7 +92,7 @@ func responseHttpError(req *http.Request, res *http.Response) ClientError {
 	response := map[string]interface{}{}
 
 	// Read the body, but tolerate a failure.
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	bytes, err := io.ReadAll(res.Body)
 	message := "(read of body failed)"
 	if err == nil {
@@ -147,7 +147,7 @@ func (c *Client) doRequestWithStatus(req *http.Request, expectedStatus int) ([]b
 	}
 
 	// Otherwise, we have a response that needs reading.
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		logf(WARN, "duplo-doRequestWithStatus: %s", err)

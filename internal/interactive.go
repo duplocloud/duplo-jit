@@ -51,7 +51,7 @@ func handlerToken(baseUrl string, localPort int, admin bool, res http.ResponseWr
 
 	// If it's a POST request, use legacy behavior.
 	if req.Method == "POST" {
-		defer req.Body.Close()
+		defer func() { _ = req.Body.Close() }()
 		// Authorize by checking the Origin.
 		origin := req.Header.Get("Origin")
 		var err error

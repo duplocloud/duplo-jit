@@ -51,8 +51,8 @@ func OutputAwsCreds(creds *AwsConfigOutput, cacheKey string) {
 	json := cacheWriteMustMarshal(cacheFile, creds)
 
 	// Write the creds to the output.
-	os.Stdout.Write(json)
-	os.Stdout.WriteString("\n")
+	_, _ = os.Stdout.Write(json)
+	_, _ = os.Stdout.WriteString("\n")
 }
 
 func PingAWSCreds(creds *AwsConfigOutput) error {
