@@ -25,7 +25,8 @@ jobs:
         name: Build and draft the release
         uses: goreleaser/goreleaser-action@v6
         with:
-          version: latest
+          distribution: goreleaser
+          version: '~> v2'
           args: release --parallelism 2 --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
