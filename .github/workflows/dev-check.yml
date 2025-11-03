@@ -13,15 +13,15 @@ jobs:
     steps:
       -
         name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       -
         name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
-          go-version: 1.23
+          go-version: 1.25
       - 
         name: Run linting
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v8
         with:
           only-new-issues: true  # Only show new issues for pull requests.
           args: --timeout 2m
@@ -30,12 +30,12 @@ jobs:
     steps:
       -
         name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       -
         name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
-          go-version: 1.23
+          go-version: 1.25
       - 
         name: Run formatting
         run: gofmt -s -w duplocloud cmd/duplo-aws-credential-process
