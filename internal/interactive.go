@@ -115,6 +115,22 @@ func TokenViaListener(baseUrl string, admin bool, cmd string, port int, timeout 
 		_ = http.Serve(listener, mux)
 	}()
 
+	// If auth cooldown is enabled, check before opening the browser.
+	cooldownDuration, cooldownEnabled := AuthCooldownEnabled()
+	if cooldownEnabled {
+		acquired, expiry, cooldownErr := TrySetAuthCooldown(baseUrl, localPort, cooldownDuration)
+		if cooldownErr != nil {
+			listener.Close()
+			return TokenResult{err: fmt.Errorf("auth cooldown error: %w", cooldownErr)}
+		}
+		if !acquired {
+			listener.Close()
+			return TokenResult{err: fmt.Errorf(
+				"authentication for %s was recently attempted — not opening another browser tab (expires %s, set by %s)",
+				GetHostCacheKey(baseUrl), expiry.Format(time.RFC3339), authCooldownEnvVar)}
+		}
+	}
+
 	// Open the browser.
 	url := getInteractiveUrl(admin, baseUrl, cmd, localPort)
 	err = open.Run(url)
@@ -123,6 +139,9 @@ func TokenViaListener(baseUrl string, admin bool, cmd string, port int, timeout 
 	// Wait for the token result, and return it.
 	select {
 	case tokenResult := <-done:
+		if tokenResult.err == nil {
+			ClearAuthCooldown(baseUrl)
+		}
 		return tokenResult
 	case <-time.After(timeout):
 		return TokenResult{err: errors.New("timed out")}
