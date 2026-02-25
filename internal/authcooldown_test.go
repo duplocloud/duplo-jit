@@ -1,20 +1,18 @@
 package internal
 
 import (
-	"encoding/json"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 )
 
-func TestAuthCooldownEnabled(t *testing.T) {
+func TestIsAuthCooldownEnabled(t *testing.T) {
 	tests := []struct {
-		name     string
-		envVal   string
-		envSet   bool
-		wantOn   bool
-		wantDur  time.Duration
+		name    string
+		envVal  string
+		envSet  bool
+		wantOn  bool
+		wantDur time.Duration
 	}{
 		{"unset", "", false, false, 0},
 		{"empty", "", true, false, 0},
@@ -37,10 +35,10 @@ func TestAuthCooldownEnabled(t *testing.T) {
 			if tt.envSet {
 				t.Setenv(authCooldownEnvVar, tt.envVal)
 			} else {
-				os.Unsetenv(authCooldownEnvVar)
+				_ = os.Unsetenv(authCooldownEnvVar)
 			}
 
-			dur, enabled := AuthCooldownEnabled()
+			dur, enabled := IsAuthCooldownEnabled()
 			if enabled != tt.wantOn {
 				t.Errorf("enabled = %v, want %v", enabled, tt.wantOn)
 			}
@@ -53,28 +51,14 @@ func TestAuthCooldownEnabled(t *testing.T) {
 
 func TestTrySetAuthCooldown_FirstSetSucceeds(t *testing.T) {
 	host := setupTestHost(t)
-
-	ok, _, err := TrySetAuthCooldown(host, 8080, 60*time.Minute)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !ok {
-		t.Fatal("expected first set to succeed")
-	}
+	mustSetCooldown(t, host, 8080, false, 60*time.Minute)
 }
 
 func TestTrySetAuthCooldown_SecondSetBlocked(t *testing.T) {
 	host := setupTestHost(t)
+	mustSetCooldown(t, host, 8080, false, 60*time.Minute)
 
-	ok, _, err := TrySetAuthCooldown(host, 8080, 60*time.Minute)
-	if err != nil {
-		t.Fatalf("unexpected error on first set: %v", err)
-	}
-	if !ok {
-		t.Fatal("expected first set to succeed")
-	}
-
-	ok, _, err = TrySetAuthCooldown(host, 9090, 60*time.Minute)
+	ok, _, err := TrySetAuthCooldown(host, 9090, false, 60*time.Minute)
 	if err != nil {
 		t.Fatalf("unexpected error on second set: %v", err)
 	}
@@ -88,21 +72,9 @@ func TestTrySetAuthCooldown_StaleCooldownReplaced(t *testing.T) {
 	cooldownDuration := 60 * time.Minute
 
 	// Create a stale cooldown file manually.
-	cooldownPath, err := authCooldownPath(host)
-	if err != nil {
-		t.Fatalf("unexpected error getting cooldown path: %v", err)
-	}
-	staleInfo := authCooldownInfo{
-		PID:       99999,
-		Timestamp: time.Now().Add(-cooldownDuration - time.Second),
-		Port:      7777,
-	}
-	data, _ := json.Marshal(staleInfo)
-	if err := os.WriteFile(cooldownPath, data, 0o600); err != nil {
-		t.Fatalf("failed to write stale cooldown: %v", err)
-	}
+	writeFakeCooldown(t, host, false, 99999, 7777, time.Now().Add(-cooldownDuration-time.Second))
 
-	ok, _, err := TrySetAuthCooldown(host, 8080, cooldownDuration)
+	ok, _, err := TrySetAuthCooldown(host, 8080, false, cooldownDuration)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -111,9 +83,7 @@ func TestTrySetAuthCooldown_StaleCooldownReplaced(t *testing.T) {
 	}
 
 	// Verify the new cooldown has our PID.
-	newData, _ := os.ReadFile(cooldownPath)
-	var info authCooldownInfo
-	json.Unmarshal(newData, &info)
+	info := ReadCooldownInfo(host, false)
 	if info.PID != os.Getpid() {
 		t.Fatalf("expected PID %d, got %d", os.Getpid(), info.PID)
 	}
@@ -121,21 +91,14 @@ func TestTrySetAuthCooldown_StaleCooldownReplaced(t *testing.T) {
 
 func TestClearAuthCooldown_RemovesFile(t *testing.T) {
 	host := setupTestHost(t)
+	mustSetCooldown(t, host, 8080, false, 60*time.Minute)
 
-	ok, _, err := TrySetAuthCooldown(host, 8080, 60*time.Minute)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !ok {
-		t.Fatal("expected set to succeed")
-	}
-
-	cooldownPath, _ := authCooldownPath(host)
+	cooldownPath, _ := authCooldownPath(host, false)
 	if _, err := os.Stat(cooldownPath); os.IsNotExist(err) {
 		t.Fatal("cooldown file should exist before clear")
 	}
 
-	ClearAuthCooldown(host)
+	ClearAuthCooldown(host, false)
 
 	if _, err := os.Stat(cooldownPath); !os.IsNotExist(err) {
 		t.Fatal("cooldown file should not exist after clear")
@@ -146,52 +109,19 @@ func TestTrySetAuthCooldown_DifferentHostsIndependent(t *testing.T) {
 	host1 := setupTestHost(t)
 	host2 := setupTestHostNamed(t, "other.example.com")
 
-	ok1, _, err := TrySetAuthCooldown(host1, 8080, 60*time.Minute)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !ok1 {
-		t.Fatal("expected first host set to succeed")
-	}
-
-	ok2, _, err := TrySetAuthCooldown(host2, 9090, 60*time.Minute)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !ok2 {
-		t.Fatal("expected second host set to succeed (different host)")
-	}
+	mustSetCooldown(t, host1, 8080, false, 60*time.Minute)
+	mustSetCooldown(t, host2, 9090, false, 60*time.Minute)
 }
 
 func TestClearAuthCooldown_AllowsReacquire(t *testing.T) {
 	host := setupTestHost(t)
-
-	ok, _, _ := TrySetAuthCooldown(host, 8080, 60*time.Minute)
-	if !ok {
-		t.Fatal("expected first set to succeed")
-	}
-
-	ClearAuthCooldown(host)
-
-	ok, _, err := TrySetAuthCooldown(host, 9090, 60*time.Minute)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !ok {
-		t.Fatal("expected re-acquire after clear to succeed")
-	}
+	mustSetCooldown(t, host, 8080, false, 60*time.Minute)
+	ClearAuthCooldown(host, false)
+	mustSetCooldown(t, host, 9090, false, 60*time.Minute)
 }
 
-// setupTestHost redirects the cache dir to a temp directory so tests don't
-// pollute the real filesystem.
-func setupTestHost(t *testing.T) string {
-	return setupTestHostNamed(t, "test.example.com")
-}
-
-func setupTestHostNamed(t *testing.T, hostname string) string {
-	t.Helper()
-	tmpDir := t.TempDir()
-	t.Setenv("HOME", tmpDir)
-	t.Setenv("XDG_CACHE_HOME", filepath.Join(tmpDir, ".cache"))
-	return "https://" + hostname
+func TestTrySetAuthCooldown_AdminFlagIndependent(t *testing.T) {
+	host := setupTestHost(t)
+	mustSetCooldown(t, host, 8080, false, 60*time.Minute)
+	mustSetCooldown(t, host, 9090, true, 60*time.Minute)
 }

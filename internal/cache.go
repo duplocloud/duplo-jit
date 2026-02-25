@@ -90,6 +90,50 @@ func cacheRemoveFile(cacheKey, file string) {
 	}
 }
 
+// CacheGetDuploTokenUnchecked reads a cached Duplo token without API validation.
+func CacheGetDuploTokenUnchecked(baseUrl string) string {
+	if noCache || cacheDir == "" {
+		return ""
+	}
+	cacheKey := GetHostCacheKey(baseUrl)
+	file := fmt.Sprintf("%s,duplo-creds.json", cacheKey)
+	creds := &DuploCredsOutput{}
+	if !cacheReadUnmarshal(file, creds) {
+		return ""
+	}
+	return creds.DuploToken
+}
+
+// ClearAllCaches removes all cached credentials and auth cooldown files.
+func ClearAllCaches() {
+	userCacheDir, err := os.UserCacheDir()
+	DieIf(err, "cannot find cache directory")
+
+	dirs := []string{
+		filepath.Join(userCacheDir, "duplo-jit"),
+		filepath.Join(userCacheDir, "duplo-jit-auth"),
+	}
+
+	var count int
+	for _, dir := range dirs {
+		entries, readErr := os.ReadDir(dir)
+		if readErr != nil {
+			continue
+		}
+		for _, entry := range entries {
+			if entry.IsDir() {
+				continue
+			}
+			path := filepath.Join(dir, entry.Name())
+			if os.Remove(path) == nil {
+				count++
+			}
+		}
+	}
+
+	fmt.Fprintf(os.Stderr, "Cleared %d cached file(s)\n", count)
+}
+
 // CacheGetAwsConfigOutput tries to read prior AWS creds from the cache.
 func CacheGetAwsConfigOutput(cacheKey string) (creds *AwsConfigOutput) {
 	var file string

@@ -1,3 +1,11 @@
+## 2026-02-24
+
+### Added
+- Opt-in auth cooldown to prevent browser tab spam when multiple processes request interactive credentials simultaneously. Set `DUPLO_JIT_AUTH_COOLDOWN=true` (or a duration like `30m`) to enable. Thanks to @scholzie for the original contribution in #52.
+
+### Changed
+- Upgraded all direct and indirect Go module dependencies.
+
 ## 2024-02-14
 
 ### Added
