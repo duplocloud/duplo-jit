@@ -39,7 +39,7 @@ func main() {
 
 	// Parse the subcommand
 	if len(os.Args) < 2 {
-		fmt.Printf("%s: expected 'aws', 'duplo' or 'k8s' subcommands\n", os.Args[0])
+		fmt.Printf("%s: expected 'aws', 'duplo', 'k8s' or 'clear-cache' subcommands\n", os.Args[0])
 		os.Exit(1)
 	}
 	cmd := os.Args[1]
@@ -54,6 +54,9 @@ func main() {
 			commit = "unknown"
 		}
 		fmt.Printf("%s version %s (git commit %s)\n", os.Args[0], version, commit)
+		os.Exit(0)
+	} else if cmd == "clear-cache" {
+		internal.ClearAllCaches()
 		os.Exit(0)
 	} else if cmd != "aws" && cmd != "duplo" && cmd != "k8s" {
 		fmt.Printf("%s: %s: subcommand not implemented\n", os.Args[0], cmd)

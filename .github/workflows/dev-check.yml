@@ -23,7 +23,7 @@ jobs:
         name: Run linting
         uses: golangci/golangci-lint-action@v8
         with:
-          only-new-issues: true  # Only show new issues for pull requests.
+          only-new-issues: ${{ github.event_name == 'pull_request' }}
           args: --timeout 2m
   format:
     runs-on: ubuntu-latest
