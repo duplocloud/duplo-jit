@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"time"
 
@@ -42,6 +43,49 @@ func ConvertAwsCreds(creds *duplocloud.AwsJitCredentials) *AwsConfigOutput {
 		SessionToken:    creds.SessionToken,
 		Expiration:      expiration.Format(time.RFC3339),
 	}
+}
+
+// OverrideConsoleRegion returns the AWS federation console URL with the region of
+// its Destination target replaced. Admin / duplo-ops JIT URLs open in the master
+// account's default region; when a tenant is selected we want the console to open
+// in that tenant's region instead. The SigninToken is left untouched.
+func OverrideConsoleRegion(consoleUrl, region string) string {
+	if consoleUrl == "" || region == "" {
+		return consoleUrl
+	}
+	u, err := url.Parse(consoleUrl)
+	if err != nil {
+		return consoleUrl
+	}
+	q := u.Query()
+	dest := q.Get("Destination")
+	if dest == "" {
+		return consoleUrl
+	}
+	d, err := url.Parse(dest)
+	if err != nil {
+		return consoleUrl
+	}
+	dq := d.Query()
+	if dq.Get("region") == "" {
+		return consoleUrl
+	}
+	dq.Set("region", region)
+	d.RawQuery = dq.Encode()
+	q.Set("Destination", d.String())
+	u.RawQuery = q.Encode()
+	return u.String()
+}
+
+// ApplyTenantRegion overrides the region reported by admin / duplo-ops JIT
+// credentials so that both the Region field and the console URL point at the
+// selected tenant's region.
+func ApplyTenantRegion(creds *AwsConfigOutput, region string) {
+	if creds == nil || region == "" {
+		return
+	}
+	creds.ConsoleUrl = OverrideConsoleRegion(creds.ConsoleUrl, region)
+	creds.Region = region
 }
 
 func OutputAwsCreds(creds *AwsConfigOutput, cacheKey string) {

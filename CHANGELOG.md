@@ -1,3 +1,8 @@
+## Unreleased
+
+### Fixed
+- `duplo-jit aws --admin`/`--duplo-ops` now honor `--tenant`: the returned `Region` and console URL open in the selected tenant's region instead of the master account's default region (DUPLO-43460).
+
 ## 2026-02-24
 
 ### Added
