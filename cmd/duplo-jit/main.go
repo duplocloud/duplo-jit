@@ -227,17 +227,14 @@ func getAdminAwsCreds(host, apiHost, token string, interactive bool, port int, r
 	cacheKey = strings.Join([]string{cacheKey, role}, ",")
 
 	var client *duplocloud.Client
-	var tenantRegion string
+	var tenantID, tenantName string
 
-	// If a tenant is selected, resolve its region and scope the cache to it.
+	// If a tenant is selected, scope the cache to it. Resolving the tenant name needs
+	// a client, so this runs ahead of the cache read, as the plain tenant path does.
 	if tenantIDorName != "" {
 		client, _ = internal.MustDuploClient(host, apiHost, token, interactive, true, port)
-		tenantID, tenantName := getTenantIDAndName(tenantIDorName, client)
+		tenantID, tenantName = getTenantIDAndName(tenantIDorName, client)
 		cacheKey = strings.Join([]string{cacheKey, "tenant", tenantName}, ",")
-
-		features, err := client.GetTenantFeatures(tenantID)
-		internal.DieIf(err, "failed to get tenant region")
-		tenantRegion = features.Region
 	}
 
 	// Try to find credentials from the cache.
@@ -252,8 +249,17 @@ func getAdminAwsCreds(host, apiHost, token string, interactive bool, port int, r
 		internal.DieIf(err, "failed to get credentials")
 		creds = internal.ConvertAwsCreds(result)
 
-		// Open the console in the tenant's region rather than the master default.
-		internal.ApplyTenantRegion(creds, tenantRegion)
+		// Open the console in the tenant's region rather than the master default. The
+		// region is baked into the cached credentials, so it is only looked up on a miss.
+		if tenantID != "" {
+			features, err := client.GetTenantFeatures(tenantID)
+			internal.DieIf(err, "failed to get tenant region")
+			if features.Region == "" {
+				fmt.Fprintf(os.Stderr, "warning: tenant %q has no region configured; using the master account default region\n", tenantName)
+			} else if !internal.ApplyTenantRegion(creds, features.Region) {
+				fmt.Fprintf(os.Stderr, "warning: could not rewrite the console URL for region %s; the console may open in a different region\n", features.Region)
+			}
+		}
 	}
 
 	return creds, cacheKey
