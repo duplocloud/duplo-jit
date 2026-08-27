@@ -24,9 +24,55 @@ func destinationRegion(t *testing.T, consoleUrl string) string {
 	return d.Query().Get("region")
 }
 
+// signinToken returns the SigninToken query param of a federation console URL.
+func signinToken(t *testing.T, consoleUrl string) string {
+	t.Helper()
+	u, err := url.Parse(consoleUrl)
+	if err != nil {
+		t.Fatalf("parse console url: %s", err)
+	}
+	return u.Query().Get("SigninToken")
+}
+
+// assertUnchanged checks that OverrideConsoleRegion declined to rewrite and returned its input.
+func assertUnchanged(t *testing.T, in, got string, ok bool) {
+	t.Helper()
+	if ok {
+		t.Fatalf("expected ok=false")
+	}
+	if got != in {
+		t.Fatalf("expected url unchanged, got %q", got)
+	}
+}
+
+// assertRewritten checks that OverrideConsoleRegion rewrote the Destination region and kept the SigninToken.
+func assertRewritten(t *testing.T, got string, ok bool, wantRegion, wantToken string) {
+	t.Helper()
+	if !ok {
+		t.Fatalf("expected ok=true")
+	}
+	if r := destinationRegion(t, got); r != wantRegion {
+		t.Fatalf("destination region = %q, want %q", r, wantRegion)
+	}
+	if tok := signinToken(t, got); tok != wantToken {
+		t.Fatalf("SigninToken = %q, want %q", tok, wantToken)
+	}
+}
+
+// assertCreds checks the Region and ConsoleUrl left on the credentials by ApplyTenantRegion.
+func assertCreds(t *testing.T, creds *AwsConfigOutput, wantRegion, wantUrl string) {
+	t.Helper()
+	if creds.Region != wantRegion || creds.ConsoleUrl != wantUrl {
+		t.Fatalf("got region=%q url=%q, want region=%q url=%q", creds.Region, creds.ConsoleUrl, wantRegion, wantUrl)
+	}
+}
+
 // A realistic federation URL with a URL-encoded Destination (lowercase %3d,
 // matching what the Duplo API returns).
 const realisticConsoleUrl = "https://signin.aws.amazon.com/federation?Action=login&SigninToken=abc-DEF_123&Destination=https%3a%2f%2fconsole.aws.amazon.com%2fconsole%2fhome%3fregion%3dus-west-2"
+
+// A Destination with the region encoded in the host rather than the query, which the rewrite cannot handle.
+const hostRegionConsoleUrl = "https://signin.aws.amazon.com/federation?Action=login&SigninToken=abc&Destination=https%3a%2f%2fus-west-2.console.aws.amazon.com%2fconsole%2fhome"
 
 func TestOverrideConsoleRegion(t *testing.T) {
 	tests := []struct {
@@ -68,7 +114,7 @@ func TestOverrideConsoleRegion(t *testing.T) {
 		},
 		{
 			name:       "region in destination host is not rewritten",
-			consoleUrl: "https://signin.aws.amazon.com/federation?Action=login&SigninToken=abc&Destination=https%3a%2f%2fus-west-2.console.aws.amazon.com%2fconsole%2fhome",
+			consoleUrl: hostRegionConsoleUrl,
 			region:     "us-east-2",
 		},
 		{
@@ -88,31 +134,10 @@ func TestOverrideConsoleRegion(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, ok := OverrideConsoleRegion(tt.consoleUrl, tt.region)
-
 			if tt.wantRegion == "" {
-				if ok {
-					t.Fatalf("expected ok=false")
-				}
-				if got != tt.consoleUrl {
-					t.Fatalf("expected url unchanged, got %q", got)
-				}
-				return
-			}
-
-			if !ok {
-				t.Fatalf("expected ok=true")
-			}
-			if r := destinationRegion(t, got); r != tt.wantRegion {
-				t.Fatalf("destination region = %q, want %q", r, tt.wantRegion)
-			}
-
-			// The SigninToken must survive the rewrite intact.
-			u, err := url.Parse(got)
-			if err != nil {
-				t.Fatalf("parse result: %s", err)
-			}
-			if tok := u.Query().Get("SigninToken"); tok != "abc-DEF_123" {
-				t.Fatalf("SigninToken = %q, want abc-DEF_123", tok)
+				assertUnchanged(t, tt.consoleUrl, got, ok)
+			} else {
+				assertRewritten(t, got, ok, tt.wantRegion, "abc-DEF_123")
 			}
 		})
 	}
@@ -137,20 +162,15 @@ func TestApplyTenantRegion(t *testing.T) {
 		if !ApplyTenantRegion(creds, "us-east-2") {
 			t.Fatalf("expected true")
 		}
-		if creds.Region != "us-east-2" || creds.ConsoleUrl != "" {
-			t.Fatalf("got region=%q url=%q", creds.Region, creds.ConsoleUrl)
-		}
+		assertCreds(t, creds, "us-east-2", "")
 	})
 
 	t.Run("console url that cannot be rewritten reports false", func(t *testing.T) {
-		hostRegion := "https://signin.aws.amazon.com/federation?Action=login&SigninToken=abc&Destination=https%3a%2f%2fus-west-2.console.aws.amazon.com%2fconsole%2fhome"
-		creds := &AwsConfigOutput{Region: "us-west-2", ConsoleUrl: hostRegion}
+		creds := &AwsConfigOutput{Region: "us-west-2", ConsoleUrl: hostRegionConsoleUrl}
 		if ApplyTenantRegion(creds, "us-east-2") {
 			t.Fatalf("expected false")
 		}
-		if creds.Region != "us-east-2" || creds.ConsoleUrl != hostRegion {
-			t.Fatalf("got region=%q url=%q", creds.Region, creds.ConsoleUrl)
-		}
+		assertCreds(t, creds, "us-east-2", hostRegionConsoleUrl)
 	})
 
 	t.Run("empty region is a no-op", func(t *testing.T) {
@@ -158,9 +178,7 @@ func TestApplyTenantRegion(t *testing.T) {
 		if ApplyTenantRegion(creds, "") {
 			t.Fatalf("expected false")
 		}
-		if creds.Region != "us-west-2" || creds.ConsoleUrl != realisticConsoleUrl {
-			t.Fatalf("expected creds unchanged, got region=%q", creds.Region)
-		}
+		assertCreds(t, creds, "us-west-2", realisticConsoleUrl)
 	})
 
 	t.Run("nil creds does not panic", func(t *testing.T) {

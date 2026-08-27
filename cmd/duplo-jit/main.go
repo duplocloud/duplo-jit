@@ -125,11 +125,11 @@ func main() {
 		var creds *internal.AwsConfigOutput
 		if *admin {
 
-			creds, cacheKey = getAdminAwsCreds(*host, *apiHost, *token, *interactive, *port, "admin", cacheKey, *tenantID)
+			creds, cacheKey = getAdminAwsCreds(*host, *apiHost, *token, *interactive, *port, "admin", *tenantID)
 
 		} else if *duploOps {
 
-			creds, cacheKey = getAdminAwsCreds(*host, *apiHost, *token, *interactive, *port, "duplo-ops", cacheKey, *tenantID)
+			creds, cacheKey = getAdminAwsCreds(*host, *apiHost, *token, *interactive, *port, "duplo-ops", *tenantID)
 
 		} else if tenantID == nil || *tenantID == "" {
 
@@ -222,9 +222,9 @@ func main() {
 // are overridden to point at the tenant's region (the admin JIT API otherwise
 // returns the master account's default region), and the tenant name is folded into
 // the cache key so credentials are cached per-tenant. It returns the credentials
-// and the (possibly extended) cache key.
-func getAdminAwsCreds(host, apiHost, token string, interactive bool, port int, role, cacheKey, tenantIDorName string) (*internal.AwsConfigOutput, string) {
-	cacheKey = strings.Join([]string{cacheKey, role}, ",")
+// and the cache key they live under.
+func getAdminAwsCreds(host, apiHost, token string, interactive bool, port int, role, tenantIDorName string) (*internal.AwsConfigOutput, string) {
+	cacheKey := strings.Join([]string{internal.GetHostCacheKey(host), role}, ",")
 
 	var client *duplocloud.Client
 	var tenantID, tenantName string
