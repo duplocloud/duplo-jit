@@ -118,6 +118,7 @@ func main() {
 	internal.MustInitCache("duplo-jit", *noCache)
 
 	// Get AWS credentials and output them
+	conn := duploConn{host: *host, apiHost: *apiHost, token: *token, interactive: *interactive, port: *port}
 	cacheKey := internal.GetHostCacheKey(*host)
 
 	switch cmd {
@@ -125,11 +126,11 @@ func main() {
 		var creds *internal.AwsConfigOutput
 		if *admin {
 
-			creds, cacheKey = getAdminAwsCreds(*host, *apiHost, *token, *interactive, *port, "admin", *tenantID)
+			creds, cacheKey = getAdminAwsCreds(conn, cacheKey, "admin", *tenantID)
 
 		} else if *duploOps {
 
-			creds, cacheKey = getAdminAwsCreds(*host, *apiHost, *token, *interactive, *port, "duplo-ops", *tenantID)
+			creds, cacheKey = getAdminAwsCreds(conn, cacheKey, "duplo-ops", *tenantID)
 
 		} else if tenantID == nil || *tenantID == "" {
 
@@ -140,7 +141,7 @@ func main() {
 
 			// Identify the tenant name to use for the cache key.
 			var tenantName string
-			client, _ := internal.MustDuploClient(*host, *apiHost, *token, *interactive, false, *port)
+			client := conn.client(false)
 			*tenantID, tenantName = getTenantIDAndName(*tenantID, client)
 
 			// Build the cache key.
@@ -177,7 +178,7 @@ func main() {
 
 			// Otherwise, get the credentials from Duplo.
 			if creds == nil {
-				client, _ := internal.MustDuploClient(*host, *apiHost, *token, *interactive, true, *port)
+				client := conn.client(true)
 				result, err := client.AdminGetK8sJitAccess(*planID)
 				internal.DieIf(err, "failed to get credentials")
 				creds = internal.ConvertK8sCreds(result)
@@ -192,7 +193,7 @@ func main() {
 
 			// Identify the tenant name to use for the cache key.
 			var tenantName string
-			client, _ := internal.MustDuploClient(*host, *apiHost, *token, *interactive, false, *port)
+			client := conn.client(false)
 			*tenantID, tenantName = getTenantIDAndName(*tenantID, client)
 
 			// Build the cache key.
@@ -217,14 +218,28 @@ func main() {
 	}
 }
 
+// duploConn carries the connection settings every Duplo API path needs, so helpers
+// can take them as one argument instead of five.
+type duploConn struct {
+	host, apiHost, token string
+	interactive          bool
+	port                 int
+}
+
+// client builds an authenticated Duplo API client (interactive login if allowed).
+func (c duploConn) client(admin bool) *duplocloud.Client {
+	client, _ := internal.MustDuploClient(c.host, c.apiHost, c.token, c.interactive, admin, c.port)
+	return client
+}
+
 // getAdminAwsCreds retrieves JIT AWS credentials for an admin role ("admin" or
 // "duplo-ops"). When a tenant is supplied, the credentials' region and console URL
 // are overridden to point at the tenant's region (the admin JIT API otherwise
 // returns the master account's default region), and the tenant name is folded into
 // the cache key so credentials are cached per-tenant. It returns the credentials
-// and the cache key they live under.
-func getAdminAwsCreds(host, apiHost, token string, interactive bool, port int, role, tenantIDorName string) (*internal.AwsConfigOutput, string) {
-	cacheKey := strings.Join([]string{internal.GetHostCacheKey(host), role}, ",")
+// and the cache key they live under — empty when they must not be cached.
+func getAdminAwsCreds(conn duploConn, hostCacheKey, role, tenantIDorName string) (*internal.AwsConfigOutput, string) {
+	cacheKey := strings.Join([]string{hostCacheKey, role}, ",")
 
 	var client *duplocloud.Client
 	var tenantID, tenantName string
@@ -232,7 +247,7 @@ func getAdminAwsCreds(host, apiHost, token string, interactive bool, port int, r
 	// If a tenant is selected, scope the cache to it. Resolving the tenant name needs
 	// a client, so this runs ahead of the cache read, as the plain tenant path does.
 	if tenantIDorName != "" {
-		client, _ = internal.MustDuploClient(host, apiHost, token, interactive, true, port)
+		client = conn.client(true)
 		tenantID, tenantName = getTenantIDAndName(tenantIDorName, client)
 		cacheKey = strings.Join([]string{cacheKey, "tenant", tenantName}, ",")
 	}
@@ -243,7 +258,7 @@ func getAdminAwsCreds(host, apiHost, token string, interactive bool, port int, r
 	// Otherwise, get the credentials from Duplo.
 	if creds == nil {
 		if client == nil {
-			client, _ = internal.MustDuploClient(host, apiHost, token, interactive, true, port)
+			client = conn.client(true)
 		}
 		result, err := client.AdminAwsGetJitAccess(role)
 		internal.DieIf(err, "failed to get credentials")
@@ -251,18 +266,35 @@ func getAdminAwsCreds(host, apiHost, token string, interactive bool, port int, r
 
 		// Open the console in the tenant's region rather than the master default. The
 		// region is baked into the cached credentials, so it is only looked up on a miss.
-		if tenantID != "" {
-			features, err := client.GetTenantFeatures(tenantID)
-			internal.DieIf(err, "failed to get tenant region")
-			if features.Region == "" {
-				fmt.Fprintf(os.Stderr, "warning: tenant %q has no region configured; using the master account default region\n", tenantName)
-			} else if !internal.ApplyTenantRegion(creds, features.Region) {
-				fmt.Fprintf(os.Stderr, "warning: could not rewrite the console URL for region %s; the console may open in a different region\n", features.Region)
-			}
+		if tenantID != "" && !applyTenantRegion(client, creds, tenantID, tenantName) {
+			// The credentials are valid regardless of region, so a failed region lookup
+			// must not fail a credential_process invocation after the JIT credentials
+			// were already minted. Fall back to the master default — but don't cache the
+			// degraded result, so the next invocation retries the lookup rather than
+			// serving a wrong console region silently for the whole cache lifetime.
+			cacheKey = ""
 		}
 	}
 
 	return creds, cacheKey
+}
+
+// applyTenantRegion looks up the tenant's region and points the credentials at it.
+// Returns false — after warning on stderr — when the lookup failed and the master
+// default region was left in place. A tenant with no region configured, or a console
+// URL that could not be rewritten, is also warned about but counts as handled.
+func applyTenantRegion(client *duplocloud.Client, creds *internal.AwsConfigOutput, tenantID, tenantName string) bool {
+	features, err := client.GetTenantFeatures(tenantID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not look up the region for tenant %q (%s); using the master account default region\n", tenantName, err)
+		return false
+	}
+	if features.Region == "" {
+		fmt.Fprintf(os.Stderr, "warning: tenant %q has no region configured; using the master account default region\n", tenantName)
+	} else if !internal.ApplyTenantRegion(creds, features.Region) {
+		fmt.Fprintf(os.Stderr, "warning: could not rewrite the console URL for region %s; the console may open in a different region\n", features.Region)
+	}
+	return true
 }
 
 func getTenantIDAndName(tenantIDorName string, client *duplocloud.Client) (string, string) {

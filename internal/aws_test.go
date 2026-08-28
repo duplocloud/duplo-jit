@@ -68,8 +68,13 @@ func assertCreds(t *testing.T, creds *AwsConfigOutput, wantRegion, wantUrl strin
 }
 
 // A realistic federation URL with a URL-encoded Destination (lowercase %3d,
-// matching what the Duplo API returns).
-const realisticConsoleUrl = "https://signin.aws.amazon.com/federation?Action=login&SigninToken=abc-DEF_123&Destination=https%3a%2f%2fconsole.aws.amazon.com%2fconsole%2fhome%3fregion%3dus-west-2"
+// matching what the Duplo API returns). The SigninToken carries `+`, `/` and `=`
+// (encoded) — the characters q.Encode() actually has to round-trip, so the
+// token-preservation assertion is not vacuous.
+const realisticConsoleUrl = "https://signin.aws.amazon.com/federation?Action=login&SigninToken=AbC%2BdEf%2FGhI%3D&Destination=https%3a%2f%2fconsole.aws.amazon.com%2fconsole%2fhome%3fregion%3dus-west-2"
+
+// The decoded form of realisticConsoleUrl's SigninToken.
+const realisticSigninToken = "AbC+dEf/GhI="
 
 // A Destination with the region encoded in the host rather than the query, which the rewrite cannot handle.
 const hostRegionConsoleUrl = "https://signin.aws.amazon.com/federation?Action=login&SigninToken=abc&Destination=https%3a%2f%2fus-west-2.console.aws.amazon.com%2fconsole%2fhome"
@@ -137,7 +142,7 @@ func TestOverrideConsoleRegion(t *testing.T) {
 			if tt.wantRegion == "" {
 				assertUnchanged(t, tt.consoleUrl, got, ok)
 			} else {
-				assertRewritten(t, got, ok, tt.wantRegion, "abc-DEF_123")
+				assertRewritten(t, got, ok, tt.wantRegion, realisticSigninToken)
 			}
 		})
 	}

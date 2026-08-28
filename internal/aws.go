@@ -109,11 +109,19 @@ func ApplyTenantRegion(creds *AwsConfigOutput, region string) bool {
 	return ok
 }
 
+// OutputAwsCreds writes the credentials to the cache under cacheKey and to stdout.
+// An empty cacheKey skips the cache write: the caller produced credentials it does
+// not want served again (e.g. a tenant-region lookup failed and the master default
+// region was left in place).
 func OutputAwsCreds(creds *AwsConfigOutput, cacheKey string) {
-
-	// Write the creds to the cache.
-	cacheFile := fmt.Sprintf("%s,aws-creds.json", cacheKey)
-	json := cacheWriteMustMarshal(cacheFile, creds)
+	var json []byte
+	if cacheKey == "" {
+		json = mustMarshal(creds)
+	} else {
+		// Write the creds to the cache.
+		cacheFile := fmt.Sprintf("%s,aws-creds.json", cacheKey)
+		json = cacheWriteMustMarshal(cacheFile, creds)
+	}
 
 	// Write the creds to the output.
 	_, _ = os.Stdout.Write(json)
