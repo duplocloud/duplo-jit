@@ -54,10 +54,9 @@ func cacheReadUnmarshal(file string, target interface{}) bool {
 	return false
 }
 
-// cacheWriteMustMarshal unmarshals the source and writes JSON.
-// It returns the JSON bytes and ignores cache write failures.
-func cacheWriteMustMarshal(file string, source interface{}) []byte {
-	// Convert the source to JSON
+// mustMarshal converts the source to JSON (HTML-safe escaping off, no trailing
+// newline) and dies if it cannot.
+func mustMarshal(source interface{}) []byte {
 	var buf bytes.Buffer
 	encoder := json.NewEncoder(&buf)
 	encoder.SetEscapeHTML(false)
@@ -65,12 +64,18 @@ func cacheWriteMustMarshal(file string, source interface{}) []byte {
 	DieIf(err, "cannot marshal to JSON")
 
 	// Remove the trailing newline added by encoder.Encode.
-	jsonBytes := bytes.TrimSuffix(buf.Bytes(), []byte("\n"))
+	return bytes.TrimSuffix(buf.Bytes(), []byte("\n"))
+}
+
+// cacheWriteMustMarshal marshals the source and writes the JSON to the cache.
+// It returns the JSON bytes and ignores cache write failures.
+func cacheWriteMustMarshal(file string, source interface{}) []byte {
+	jsonBytes := mustMarshal(source)
 
 	// Cache the JSON if caching is enabled
 	if !noCache && cacheDir != "" {
 		file = filepath.Join(cacheDir, file)
-		err = os.WriteFile(file, jsonBytes, 0600)
+		err := os.WriteFile(file, jsonBytes, 0600)
 		if err != nil {
 			log.Printf("warning: %s: unable to write to cache", file)
 		}

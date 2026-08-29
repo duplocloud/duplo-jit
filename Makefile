@@ -12,6 +12,7 @@ install: all
 	sudo install -o root -m 755 duplo-jit /usr/local/bin/duplo-jit
 
 test: all
+	go test ./...
 
 all: duplo-aws-credential-process duplo-jit
 

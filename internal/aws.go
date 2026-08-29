@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"time"
 
@@ -44,11 +45,83 @@ func ConvertAwsCreds(creds *duplocloud.AwsJitCredentials) *AwsConfigOutput {
 	}
 }
 
-func OutputAwsCreds(creds *AwsConfigOutput, cacheKey string) {
+// OverrideConsoleRegion returns the AWS federation console URL with the region of
+// its Destination target replaced, and whether a rewrite happened. Admin / duplo-ops
+// JIT URLs open in the master account's default region; when a tenant is selected we
+// want the console to open in that tenant's region instead.
+//
+// The URL comes back unchanged (false) when it is empty, cannot be fully parsed, has
+// no Destination, or the Destination carries no region query param (for example a
+// region encoded in the host). Only the Destination query is rewritten; a region
+// inside its fragment is carried through as-is. The SigninToken value is preserved
+// (re-encoded equivalently).
+func OverrideConsoleRegion(consoleUrl, region string) (string, bool) {
+	if consoleUrl == "" || region == "" {
+		return consoleUrl, false
+	}
+	u, err := url.Parse(consoleUrl)
+	if err != nil {
+		return consoleUrl, false
+	}
+	// u.Query() silently drops malformed pairs, and re-encoding would then lose them
+	// (SigninToken included), so never re-serialize a query that did not fully parse.
+	q, err := url.ParseQuery(u.RawQuery)
+	if err != nil {
+		return consoleUrl, false
+	}
+	dest := q.Get("Destination")
+	if dest == "" {
+		return consoleUrl, false
+	}
+	d, err := url.Parse(dest)
+	if err != nil {
+		return consoleUrl, false
+	}
+	dq, err := url.ParseQuery(d.RawQuery)
+	if err != nil {
+		return consoleUrl, false
+	}
+	if dq.Get("region") == "" {
+		return consoleUrl, false
+	}
+	dq.Set("region", region)
+	d.RawQuery = dq.Encode()
+	q.Set("Destination", d.String())
+	u.RawQuery = q.Encode()
+	return u.String(), true
+}
 
-	// Write the creds to the cache.
-	cacheFile := fmt.Sprintf("%s,aws-creds.json", cacheKey)
-	json := cacheWriteMustMarshal(cacheFile, creds)
+// ApplyTenantRegion overrides the region reported by admin / duplo-ops JIT
+// credentials so that both the Region field and the console URL point at the
+// selected tenant's region. It returns false when nothing was applied, or when the
+// credentials carry a console URL that could not be rewritten and so no longer
+// agrees with Region.
+func ApplyTenantRegion(creds *AwsConfigOutput, region string) bool {
+	if creds == nil || region == "" {
+		return false
+	}
+	creds.Region = region
+	if creds.ConsoleUrl == "" {
+		return true
+	}
+	var ok bool
+	creds.ConsoleUrl, ok = OverrideConsoleRegion(creds.ConsoleUrl, region)
+	return ok
+}
+
+// OutputAwsCreds writes the credentials to the cache under cacheKey and to stdout.
+// An empty cacheKey skips the cache write: the caller produced credentials it does
+// not want served again (e.g. a tenant-region lookup failed and the master default
+// region was left in place).
+func OutputAwsCreds(creds *AwsConfigOutput, cacheKey string) {
+	var json []byte
+	if cacheKey == "" {
+		json = mustMarshal(creds)
+	} else {
+		// Write the creds to the cache.
+		cacheFile := fmt.Sprintf("%s,aws-creds.json", cacheKey)
+		json = cacheWriteMustMarshal(cacheFile, creds)
+	}
 
 	// Write the creds to the output.
 	_, _ = os.Stdout.Write(json)
