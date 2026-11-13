@@ -1,3 +1,8 @@
+## 2026-11-12
+
+### Changed
+- Upgraded to Go 1.27 and to the latest AWS SDK, Kubernetes `client-go` and `apimachinery`, and `golang.org/x` modules. `govulncheck` reports no known vulnerabilities. Building from source now needs Go 1.27 or later.
+
 ## 2026-08-28
 
 ### Fixed
