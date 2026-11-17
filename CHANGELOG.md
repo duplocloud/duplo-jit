@@ -1,3 +1,11 @@
+## 2026-11-12
+
+### Changed
+- Upgraded to Go 1.27 and to the latest AWS SDK, Kubernetes `client-go` and `apimachinery`, and `golang.org/x` modules. `govulncheck` reports no known vulnerabilities. Building from source now needs Go 1.27 or later.
+
+### Removed
+- The 32-bit Windows ARM archive (`windows_arm`). Go 1.27 has no `windows/arm` port, so releases carry `windows_386`, `windows_amd64` and `windows_arm64` only.
+
 ## 2026-08-28
 
 ### Fixed
