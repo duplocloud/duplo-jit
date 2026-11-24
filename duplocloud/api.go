@@ -2,6 +2,7 @@ package duplocloud
 
 import (
 	"fmt"
+	"net/url"
 	"time"
 )
 
@@ -131,6 +132,60 @@ func (c *Client) TenantGetK8sJitAccess(tenantID string) (*DuploPlanK8ClusterConf
 		return nil, err
 	}
 	return &creds, nil
+}
+
+// HelpdeskK8sClusterConfig mirrors the duplo-ai-helpdesk backend's camelCase K8sClusterConfig
+// response — a different shape from the legacy DuploPlanK8ClusterConfig above (that one is
+// PascalCase JSON, with K8Provider as an int; this backend serializes camelCase, with
+// K8Provider as a string, e.g. "EKS"/"GKE"/"AKS"/"OKE").
+type HelpdeskK8sClusterConfig struct {
+	Name                           string     `json:"name,omitempty"`
+	ApiServer                      string     `json:"apiServer,omitempty"`
+	Token                          string     `json:"token,omitempty"`
+	K8Provider                     string     `json:"k8Provider,omitempty"`
+	K8sVersion                     string     `json:"k8sVersion,omitempty"`
+	CertificateAuthorityDataBase64 string     `json:"certificateAuthorityDataBase64,omitempty"`
+	DefaultNamespace               string     `json:"defaultNamespace,omitempty"`
+	TokenExpiresAtUtc              *time.Time `json:"tokenExpiresAtUtc,omitempty"`
+}
+
+// helpdeskApiEnvelope is the {"success":..,"data":{...},"message":..} wrapper every
+// duplo-ai-helpdesk response carries its payload in (that backend's ApiResponse<T>).
+type helpdeskApiEnvelope struct {
+	Success bool                     `json:"success"`
+	Message string                   `json:"message,omitempty"`
+	Data    HelpdeskK8sClusterConfig `json:"data"`
+}
+
+// HelpdeskGetClusterJitAccess retrieves JIT Kubernetes credentials for a managed Cluster
+// resource from the new duplo-ai-helpdesk backend. Distinct from TenantGetK8sJitAccess/
+// AdminGetK8sJitAccess above, which call the legacy Duplo platform.
+func (c *Client) HelpdeskGetClusterJitAccess(workspaceID, clusterID string) (*HelpdeskK8sClusterConfig, ClientError) {
+	env := helpdeskApiEnvelope{}
+	err := c.getAPI(
+		fmt.Sprintf("HelpdeskGetClusterJitAccess(%s,%s)", workspaceID, clusterID),
+		fmt.Sprintf("v1/aiservicedesk/user/data/workspaces/%s/environment/Clusters/%s/jitAccess", workspaceID, clusterID),
+		&env,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &env.Data, nil
+}
+
+// HelpdeskGetScopeJitAccess retrieves JIT Kubernetes credentials for a Kubernetes scope
+// (Provider -> K8s -> Scope) from the new duplo-ai-helpdesk backend.
+func (c *Client) HelpdeskGetScopeJitAccess(workspaceID, scopeID, namespace string) (*HelpdeskK8sClusterConfig, ClientError) {
+	path := fmt.Sprintf("v1/aiservicedesk/user/data/workspaces/%s/scopes/%s/k8s/jitAccess", workspaceID, scopeID)
+	if namespace != "" {
+		path = fmt.Sprintf("%s?namespace=%s", path, url.QueryEscape(namespace))
+	}
+	env := helpdeskApiEnvelope{}
+	err := c.doAPI("POST", fmt.Sprintf("HelpdeskGetScopeJitAccess(%s,%s)", workspaceID, scopeID), path, &env)
+	if err != nil {
+		return nil, err
+	}
+	return &env.Data, nil
 }
 
 // ListTenantsForUser retrieves a list of tenants for the current user via the Duplo API.

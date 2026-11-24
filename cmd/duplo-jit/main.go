@@ -21,6 +21,10 @@ func main() {
 	var duploOps *bool
 	var tenantID *string
 	var planID *string
+	var workspaceID *string
+	var clusterID *string
+	var scopeID *string
+	var namespace *string
 
 	// Make sure we log to stderr - so we don't disturb the output to be collected by the AWS CLI
 	log.SetOutput(os.Stderr)
@@ -39,7 +43,7 @@ func main() {
 
 	// Parse the subcommand
 	if len(os.Args) < 2 {
-		fmt.Printf("%s: expected 'aws', 'duplo', 'k8s' or 'clear-cache' subcommands\n", os.Args[0])
+		fmt.Printf("%s: expected 'aws', 'duplo', 'k8s', 'helpdesk-k8s' or 'clear-cache' subcommands\n", os.Args[0])
 		os.Exit(1)
 	}
 	cmd := os.Args[1]
@@ -58,7 +62,7 @@ func main() {
 	} else if cmd == "clear-cache" {
 		internal.ClearAllCaches()
 		os.Exit(0)
-	} else if cmd != "aws" && cmd != "duplo" && cmd != "k8s" {
+	} else if cmd != "aws" && cmd != "duplo" && cmd != "k8s" && cmd != "helpdesk-k8s" {
 		fmt.Printf("%s: %s: subcommand not implemented\n", os.Args[0], cmd)
 		os.Exit(1)
 	} else {
@@ -71,6 +75,12 @@ func main() {
 		}
 		if cmd == "k8s" || cmd == "aws" {
 			tenantID = flag.String("tenant", "", "Get credentials for the given tenant")
+		}
+		if cmd == "helpdesk-k8s" {
+			workspaceID = flag.String("workspace-id", "", "Helpdesk workspace ID")
+			clusterID = flag.String("cluster-id", "", "Cluster ID (mutually exclusive with --scope-id)")
+			scopeID = flag.String("scope-id", "", "Scope ID (mutually exclusive with --cluster-id)")
+			namespace = flag.String("namespace", "", "Namespace (only used with --scope-id)")
 		}
 	}
 
@@ -210,6 +220,56 @@ func main() {
 				creds = internal.ConvertK8sCreds(result)
 			}
 
+		}
+
+		// Finally, we can output credentials.
+		internal.OutputK8sCreds(creds, cacheKey)
+
+	case "helpdesk-k8s":
+		// Distinct from "k8s" above: this mode talks to the new duplo-ai-helpdesk backend
+		// (workspace/cluster/scope identifiers), not the legacy Duplo platform (tenant/plan).
+		// It never logs in interactively — the bearer token is handed to it ready-made, via
+		// DUPLO_JIT_TOKEN, by the kubeconfig's exec.env (see KubeConfigFile.fromK8ClusterConfig
+		// in duplo-ui), never a CLI flag, so it never shows up in `ps`.
+		if workspaceID == nil || *workspaceID == "" {
+			internal.DieIf(errors.New("must specify --workspace-id"), "invalid arguments")
+		}
+		hasCluster := clusterID != nil && *clusterID != ""
+		hasScope := scopeID != nil && *scopeID != ""
+		if !hasCluster && !hasScope {
+			internal.DieIf(errors.New("must specify --cluster-id or --scope-id"), "invalid arguments")
+		}
+		if hasCluster && hasScope {
+			internal.DieIf(errors.New("--cluster-id and --scope-id are mutually exclusive"), "invalid arguments")
+		}
+
+		jitToken := os.Getenv("DUPLO_JIT_TOKEN")
+		if jitToken == "" {
+			internal.DieIf(errors.New("DUPLO_JIT_TOKEN environment variable is required"), "invalid arguments")
+		}
+
+		client, clientErr := duplocloud.NewClient(*apiHost, jitToken)
+		internal.DieIf(clientErr, "failed to create API client")
+
+		var creds *clientauthv1beta1.ExecCredential
+		if hasCluster {
+			cacheKey = strings.Join([]string{cacheKey, "helpdesk-cluster", *workspaceID, *clusterID}, ",")
+			creds = internal.CacheGetHelpdeskK8sConfigOutput(cacheKey)
+
+			if creds == nil {
+				result, err := client.HelpdeskGetClusterJitAccess(*workspaceID, *clusterID)
+				internal.DieIf(err, "failed to get credentials")
+				creds = internal.ConvertHelpdeskK8sCreds(result)
+			}
+		} else {
+			cacheKey = strings.Join([]string{cacheKey, "helpdesk-scope", *workspaceID, *scopeID, *namespace}, ",")
+			creds = internal.CacheGetHelpdeskK8sConfigOutput(cacheKey)
+
+			if creds == nil {
+				result, err := client.HelpdeskGetScopeJitAccess(*workspaceID, *scopeID, *namespace)
+				internal.DieIf(err, "failed to get credentials")
+				creds = internal.ConvertHelpdeskK8sCreds(result)
+			}
 		}
 
 		// Finally, we can output credentials.
