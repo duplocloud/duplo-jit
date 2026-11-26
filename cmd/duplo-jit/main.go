@@ -25,6 +25,10 @@ func main() {
 	var clusterID *string
 	var scopeID *string
 	var namespace *string
+	var envID *string
+	var rgID *string
+	var namespaceID *string
+	var readOnly *bool
 
 	// Make sure we log to stderr - so we don't disturb the output to be collected by the AWS CLI
 	log.SetOutput(os.Stderr)
@@ -78,9 +82,13 @@ func main() {
 		}
 		if cmd == "helpdesk-k8s" {
 			workspaceID = flag.String("workspace-id", "", "Helpdesk workspace ID")
-			clusterID = flag.String("cluster-id", "", "Cluster ID (mutually exclusive with --scope-id)")
-			scopeID = flag.String("scope-id", "", "Scope ID (mutually exclusive with --cluster-id)")
+			clusterID = flag.String("cluster-id", "", "Cluster ID (mutually exclusive with --scope-id and --namespace-id)")
+			scopeID = flag.String("scope-id", "", "Scope ID (mutually exclusive with --cluster-id and --namespace-id)")
 			namespace = flag.String("namespace", "", "Namespace (only used with --scope-id)")
+			envID = flag.String("env-id", "", "Environment ID (used with --namespace-id)")
+			rgID = flag.String("rg-id", "", "Resource Group ID (used with --namespace-id)")
+			namespaceID = flag.String("namespace-id", "", "Namespace ID (mutually exclusive with --cluster-id and --scope-id; requires --env-id and --rg-id)")
+			readOnly = flag.Bool("read-only", false, "Request the namespace's read-only ServiceAccount (only used with --namespace-id)")
 		}
 	}
 
@@ -236,11 +244,14 @@ func main() {
 		}
 		hasCluster := clusterID != nil && *clusterID != ""
 		hasScope := scopeID != nil && *scopeID != ""
-		if !hasCluster && !hasScope {
-			internal.DieIf(errors.New("must specify --cluster-id or --scope-id"), "invalid arguments")
-		}
-		if hasCluster && hasScope {
-			internal.DieIf(errors.New("--cluster-id and --scope-id are mutually exclusive"), "invalid arguments")
+		hasNamespace := namespaceID != nil && *namespaceID != ""
+		switch {
+		case !hasCluster && !hasScope && !hasNamespace:
+			internal.DieIf(errors.New("must specify --cluster-id, --scope-id, or --namespace-id"), "invalid arguments")
+		case (hasCluster && hasScope) || (hasCluster && hasNamespace) || (hasScope && hasNamespace):
+			internal.DieIf(errors.New("--cluster-id, --scope-id, and --namespace-id are mutually exclusive"), "invalid arguments")
+		case hasNamespace && (envID == nil || *envID == "" || rgID == nil || *rgID == ""):
+			internal.DieIf(errors.New("--namespace-id requires --env-id and --rg-id"), "invalid arguments")
 		}
 
 		jitToken := os.Getenv("DUPLO_JIT_TOKEN")
@@ -252,7 +263,8 @@ func main() {
 		internal.DieIf(clientErr, "failed to create API client")
 
 		var creds *clientauthv1beta1.ExecCredential
-		if hasCluster {
+		switch {
+		case hasCluster:
 			cacheKey = strings.Join([]string{cacheKey, "helpdesk-cluster", *workspaceID, *clusterID}, ",")
 			creds = internal.CacheGetHelpdeskK8sConfigOutput(cacheKey)
 
@@ -261,12 +273,21 @@ func main() {
 				internal.DieIf(err, "failed to get credentials")
 				creds = internal.ConvertHelpdeskK8sCreds(result)
 			}
-		} else {
+		case hasScope:
 			cacheKey = strings.Join([]string{cacheKey, "helpdesk-scope", *workspaceID, *scopeID, *namespace}, ",")
 			creds = internal.CacheGetHelpdeskK8sConfigOutput(cacheKey)
 
 			if creds == nil {
 				result, err := client.HelpdeskGetScopeJitAccess(*workspaceID, *scopeID, *namespace)
+				internal.DieIf(err, "failed to get credentials")
+				creds = internal.ConvertHelpdeskK8sCreds(result)
+			}
+		default:
+			cacheKey = strings.Join([]string{cacheKey, "helpdesk-namespace", *workspaceID, *envID, *rgID, *namespaceID, fmt.Sprintf("%t", *readOnly)}, ",")
+			creds = internal.CacheGetHelpdeskK8sConfigOutput(cacheKey)
+
+			if creds == nil {
+				result, err := client.HelpdeskGetNamespaceJitAccess(*workspaceID, *envID, *rgID, *namespaceID, *readOnly)
 				internal.DieIf(err, "failed to get credentials")
 				creds = internal.ConvertHelpdeskK8sCreds(result)
 			}

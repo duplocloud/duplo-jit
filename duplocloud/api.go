@@ -188,6 +188,23 @@ func (c *Client) HelpdeskGetScopeJitAccess(workspaceID, scopeID, namespace strin
 	return &env.Data, nil
 }
 
+// HelpdeskGetNamespaceJitAccess retrieves JIT Kubernetes credentials for a Namespace
+// (Environment -> Resource Group -> Namespace) from the new duplo-ai-helpdesk backend. Distinct
+// from HelpdeskGetScopeJitAccess above: this mints a namespace-scoped Kubernetes ServiceAccount
+// token rather than a cloud-IAM credential, and is anchored at env/resource-group/namespace
+// instead of a Kubernetes scope.
+func (c *Client) HelpdeskGetNamespaceJitAccess(workspaceID, envID, rgID, namespaceID string, isReadOnly bool) (*HelpdeskK8sClusterConfig, ClientError) {
+	path := fmt.Sprintf(
+		"v1/aiservicedesk/user/data/workspaces/%s/environments/%s/resource-groups/%s/namespaces/%s/k8s/jitAccess?isReadOnly=%t",
+		workspaceID, envID, rgID, namespaceID, isReadOnly)
+	env := helpdeskApiEnvelope{}
+	err := c.doAPI("POST", fmt.Sprintf("HelpdeskGetNamespaceJitAccess(%s,%s,%s,%s)", workspaceID, envID, rgID, namespaceID), path, &env)
+	if err != nil {
+		return nil, err
+	}
+	return &env.Data, nil
+}
+
 // ListTenantsForUser retrieves a list of tenants for the current user via the Duplo API.
 func (c *Client) ListTenantsForUser() (*[]UserTenant, ClientError) {
 	list := []UserTenant{}
