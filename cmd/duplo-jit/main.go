@@ -16,11 +16,25 @@ import (
 var commit string
 var version string
 
+// helpdeskK8sCmd is the subcommand name for talking to the new duplo-ai-helpdesk backend
+// (workspace/cluster/scope/namespace identifiers), distinct from the legacy "k8s" subcommand
+// (tenant/plan identifiers). A kubeconfig's exec.args may omit it and infer the mode instead —
+// see argsContainFlag below.
+const helpdeskK8sCmd = "helpdesk-k8s"
+
 func main() {
 	var admin *bool
 	var duploOps *bool
 	var tenantID *string
 	var planID *string
+	var workspaceID *string
+	var clusterID *string
+	var scopeID *string
+	var namespace *string
+	var envID *string
+	var rgID *string
+	var namespaceID *string
+	var readOnly *bool
 
 	// Make sure we log to stderr - so we don't disturb the output to be collected by the AWS CLI
 	log.SetOutput(os.Stderr)
@@ -39,10 +53,11 @@ func main() {
 
 	// Parse the subcommand
 	if len(os.Args) < 2 {
-		fmt.Printf("%s: expected 'aws', 'duplo', 'k8s' or 'clear-cache' subcommands\n", os.Args[0])
+		fmt.Printf("%s: expected 'aws', 'duplo', 'k8s', '%s' or 'clear-cache' subcommands\n", os.Args[0], helpdeskK8sCmd)
 		os.Exit(1)
 	}
 	cmd := os.Args[1]
+	flagArgs := os.Args[2:]
 	if cmd == "help" {
 		fmt.Printf("%s: %s\n", os.Args[0], flag.ErrHelp.Error())
 		os.Exit(0)
@@ -58,24 +73,41 @@ func main() {
 	} else if cmd == "clear-cache" {
 		internal.ClearAllCaches()
 		os.Exit(0)
-	} else if cmd != "aws" && cmd != "duplo" && cmd != "k8s" {
-		fmt.Printf("%s: %s: subcommand not implemented\n", os.Args[0], cmd)
-		os.Exit(1)
-	} else {
-		if cmd == "aws" {
-			admin = flag.Bool("admin", false, "Get admin credentials")
-			duploOps = flag.Bool("duplo-ops", false, "Get Duplo operations credentials")
+	} else if cmd != "aws" && cmd != "duplo" && cmd != "k8s" && cmd != helpdeskK8sCmd {
+		// Not a recognized literal subcommand. A kubeconfig's exec.args may omit the
+		// helpdeskK8sCmd name entirely and pass its flags directly — inferred from --workspace-id,
+		// the one flag every helpdesk-k8s invocation always carries and no other mode uses.
+		if strings.HasPrefix(cmd, "-") && argsContainFlag(os.Args[1:], "workspace-id") {
+			cmd = helpdeskK8sCmd
+			flagArgs = os.Args[1:]
+		} else {
+			fmt.Printf("%s: %s: subcommand not implemented\n", os.Args[0], cmd)
+			os.Exit(1)
 		}
-		if cmd == "k8s" {
-			planID = flag.String("plan", "", "Get credentials for the given plan")
-		}
-		if cmd == "k8s" || cmd == "aws" {
-			tenantID = flag.String("tenant", "", "Get credentials for the given tenant")
-		}
+	}
+	if cmd == "aws" {
+		admin = flag.Bool("admin", false, "Get admin credentials")
+		duploOps = flag.Bool("duplo-ops", false, "Get Duplo operations credentials")
+	}
+	if cmd == "k8s" {
+		planID = flag.String("plan", "", "Get credentials for the given plan")
+	}
+	if cmd == "k8s" || cmd == "aws" {
+		tenantID = flag.String("tenant", "", "Get credentials for the given tenant")
+	}
+	if cmd == helpdeskK8sCmd {
+		workspaceID = flag.String("workspace-id", "", "Helpdesk workspace ID")
+		clusterID = flag.String("cluster-id", "", "Cluster ID (mutually exclusive with --scope-id and --namespace-id)")
+		scopeID = flag.String("scope-id", "", "Scope ID (mutually exclusive with --cluster-id and --namespace-id)")
+		namespace = flag.String("namespace", "", "Namespace (only used with --scope-id)")
+		envID = flag.String("env-id", "", "Environment ID (used with --namespace-id)")
+		rgID = flag.String("rg-id", "", "Resource Group ID (used with --namespace-id)")
+		namespaceID = flag.String("namespace-id", "", "Namespace ID (mutually exclusive with --cluster-id and --scope-id; requires --env-id and --rg-id)")
+		readOnly = flag.Bool("read-only", false, "Request the namespace's read-only ServiceAccount (only used with --namespace-id)")
 	}
 
 	// Parse command-line arguments.
-	if err := flag.CommandLine.Parse(os.Args[2:]); err != nil {
+	if err := flag.CommandLine.Parse(flagArgs); err != nil {
 		fmt.Printf("%s: %s\n", os.Args[0], err.Error())
 		os.Exit(1)
 	}
@@ -215,7 +247,121 @@ func main() {
 		// Finally, we can output credentials.
 		internal.OutputK8sCreds(creds, cacheKey)
 
+	case helpdeskK8sCmd:
+		// Distinct from "k8s" above: this mode talks to the new duplo-ai-helpdesk backend
+		// (workspace/cluster/scope identifiers), not the legacy Duplo platform (tenant/plan).
+		//
+		// Authentication mirrors the legacy "duplo k8s --interactive" mode exactly (see
+		// internal.MustHelpdeskClient): an explicit --token flag, then DUPLO_JIT_TOKEN (the
+		// embedded-JWT kubeconfig shape stays env-only, never a flag, so it never shows up in
+		// `ps`), then a cached interactive login, then — only with --interactive — a browser
+		// popup reusing the same verify-token page and listener the legacy mode already uses.
+		if workspaceID == nil || *workspaceID == "" {
+			internal.DieIf(errors.New("must specify --workspace-id"), "invalid arguments")
+		}
+		hasCluster := clusterID != nil && *clusterID != ""
+		hasScope := scopeID != nil && *scopeID != ""
+		hasNamespace := namespaceID != nil && *namespaceID != ""
+		hasEnvAndRg := envID != nil && *envID != "" && rgID != nil && *rgID != ""
+		internal.DieIf(validateHelpdeskK8sArgs(hasCluster, hasScope, hasNamespace, hasEnvAndRg), "invalid arguments")
+
+		// A stale/revoked token is only worth clearing and retrying through a fresh interactive
+		// login when nothing explicit was supplied — an explicit --token or DUPLO_JIT_TOKEN that
+		// fails must fail loudly, exactly like the legacy mode's own MustDuploClient behavior.
+		noExplicitToken := *token == "" && os.Getenv("DUPLO_JIT_TOKEN") == ""
+
+		var creds *clientauthv1beta1.ExecCredential
+		switch {
+		case hasCluster:
+			cacheKey = strings.Join([]string{cacheKey, "helpdesk-cluster", *workspaceID, *clusterID}, ",")
+			creds = internal.CacheGetHelpdeskK8sConfigOutput(cacheKey)
+
+			if creds == nil {
+				result, err := callHelpdeskWithRetry(*host, *apiHost, *token, *interactive, *port, noExplicitToken,
+					func(client *duplocloud.Client) (*duplocloud.HelpdeskK8sClusterConfig, duplocloud.ClientError) {
+						return client.HelpdeskGetClusterJitAccess(*workspaceID, *clusterID)
+					})
+				internal.DieIf(err, "failed to get credentials")
+				creds = internal.ConvertHelpdeskK8sCreds(result)
+			}
+		case hasScope:
+			cacheKey = strings.Join([]string{cacheKey, "helpdesk-scope", *workspaceID, *scopeID, *namespace}, ",")
+			creds = internal.CacheGetHelpdeskK8sConfigOutput(cacheKey)
+
+			if creds == nil {
+				result, err := callHelpdeskWithRetry(*host, *apiHost, *token, *interactive, *port, noExplicitToken,
+					func(client *duplocloud.Client) (*duplocloud.HelpdeskK8sClusterConfig, duplocloud.ClientError) {
+						return client.HelpdeskGetScopeJitAccess(*workspaceID, *scopeID, *namespace)
+					})
+				internal.DieIf(err, "failed to get credentials")
+				creds = internal.ConvertHelpdeskK8sCreds(result)
+			}
+		default:
+			cacheKey = strings.Join([]string{cacheKey, "helpdesk-namespace", *workspaceID, *envID, *rgID, *namespaceID, fmt.Sprintf("%t", *readOnly)}, ",")
+			creds = internal.CacheGetHelpdeskK8sConfigOutput(cacheKey)
+
+			if creds == nil {
+				result, err := callHelpdeskWithRetry(*host, *apiHost, *token, *interactive, *port, noExplicitToken,
+					func(client *duplocloud.Client) (*duplocloud.HelpdeskK8sClusterConfig, duplocloud.ClientError) {
+						return client.HelpdeskGetNamespaceJitAccess(*workspaceID, *envID, *rgID, *namespaceID, *readOnly)
+					})
+				internal.DieIf(err, "failed to get credentials")
+				creds = internal.ConvertHelpdeskK8sCreds(result)
+			}
+		}
+
+		// Finally, we can output credentials.
+		internal.OutputK8sCreds(creds, cacheKey)
+
 	}
+}
+
+// validateHelpdeskK8sArgs checks the three-way mutually-exclusive identifier choice for the
+// helpdesk-k8s subcommand: exactly one of --cluster-id, --scope-id, --namespace-id, with the
+// last requiring both --env-id and --rg-id alongside it. Returns nil when the combination is
+// valid, so the caller can DieIf on it directly.
+func validateHelpdeskK8sArgs(hasCluster, hasScope, hasNamespace, hasEnvAndRg bool) error {
+	switch {
+	case !hasCluster && !hasScope && !hasNamespace:
+		return errors.New("must specify --cluster-id, --scope-id, or --namespace-id")
+	case (hasCluster && hasScope) || (hasCluster && hasNamespace) || (hasScope && hasNamespace):
+		return errors.New("--cluster-id, --scope-id, and --namespace-id are mutually exclusive")
+	case hasNamespace && !hasEnvAndRg:
+		return errors.New("--namespace-id requires --env-id and --rg-id")
+	default:
+		return nil
+	}
+}
+
+// callHelpdeskWithRetry resolves a helpdesk-k8s client (internal.MustHelpdeskClient) and calls
+// fn. When the client came from a cached or freshly-interactive token (noExplicitToken) and fn's
+// error is a 401 (expired or revoked token), the cached token is cleared and the whole
+// resolve-and-call cycle retries exactly once through a fresh interactive login — never when an
+// explicit --token/DUPLO_JIT_TOKEN was supplied, which must fail loudly instead.
+func callHelpdeskWithRetry(host, apiHost, token string, interactive bool, port int, noExplicitToken bool,
+	fn func(*duplocloud.Client) (*duplocloud.HelpdeskK8sClusterConfig, duplocloud.ClientError),
+) (*duplocloud.HelpdeskK8sClusterConfig, duplocloud.ClientError) {
+	client := internal.MustHelpdeskClient(host, apiHost, token, interactive, port)
+	result, err := fn(client)
+	if err != nil && err.Status() == 401 && noExplicitToken {
+		internal.InvalidateHelpdeskToken(host)
+		client = internal.MustHelpdeskClient(host, apiHost, token, interactive, port)
+		result, err = fn(client)
+	}
+	return result, err
+}
+
+// argsContainFlag reports whether args includes the given long flag, as either "--name" or
+// "--name=value". Used only to infer helpdesk-k8s mode before any flags are registered/parsed —
+// flag.CommandLine itself does the real, validating parse once the mode is decided.
+func argsContainFlag(args []string, name string) bool {
+	prefix := "--" + name
+	for _, arg := range args {
+		if arg == prefix || strings.HasPrefix(arg, prefix+"=") {
+			return true
+		}
+	}
+	return false
 }
 
 // duploConn carries the connection settings every Duplo API path needs, so helpers

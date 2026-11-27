@@ -266,3 +266,44 @@ func CacheGetK8sConfigOutput(cacheKey string, tenantName string) (creds *clienta
 
 	return
 }
+
+// CacheGetHelpdeskK8sConfigOutput tries to read prior helpdesk-mode K8s creds from the cache.
+// Parallel to CacheGetK8sConfigOutput above, but validates via PingHelpdeskK8sCreds (no tenant
+// namespace reconstruction — see that function's doc comment) since there is no tenant name
+// in the helpdesk-mode call chain at all.
+func CacheGetHelpdeskK8sConfigOutput(cacheKey string) (creds *clientauthv1beta1.ExecCredential) {
+	var file string
+
+	// Read credentials from the cache.
+	if !noCache && cacheDir != "" {
+		file = fmt.Sprintf("%s,k8s-creds.json", cacheKey)
+		creds = &clientauthv1beta1.ExecCredential{}
+		if !cacheReadUnmarshal(file, creds) {
+			creds = nil
+		}
+
+		// Check credentials for expiry.
+		if creds != nil {
+			// Expires in five minutes or less?
+			fiveMinutesFromNow := time.Now().UTC().Add(5 * time.Minute)
+			expiration := creds.Status.ExpirationTimestamp.Time
+			if fiveMinutesFromNow.After(expiration) {
+				creds = nil
+			}
+		}
+
+		// Validate creds by executing ping
+		if creds != nil {
+			if err := PingHelpdeskK8sCreds(creds); err != nil {
+				creds = nil
+			}
+		}
+
+		// Clear the cache if the creds expired or invalid
+		if creds == nil {
+			cacheRemoveFile(cacheKey, file)
+		}
+	}
+
+	return
+}
