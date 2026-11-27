@@ -262,14 +262,8 @@ func main() {
 		hasCluster := clusterID != nil && *clusterID != ""
 		hasScope := scopeID != nil && *scopeID != ""
 		hasNamespace := namespaceID != nil && *namespaceID != ""
-		switch {
-		case !hasCluster && !hasScope && !hasNamespace:
-			internal.DieIf(errors.New("must specify --cluster-id, --scope-id, or --namespace-id"), "invalid arguments")
-		case (hasCluster && hasScope) || (hasCluster && hasNamespace) || (hasScope && hasNamespace):
-			internal.DieIf(errors.New("--cluster-id, --scope-id, and --namespace-id are mutually exclusive"), "invalid arguments")
-		case hasNamespace && (envID == nil || *envID == "" || rgID == nil || *rgID == ""):
-			internal.DieIf(errors.New("--namespace-id requires --env-id and --rg-id"), "invalid arguments")
-		}
+		hasEnvAndRg := envID != nil && *envID != "" && rgID != nil && *rgID != ""
+		internal.DieIf(validateHelpdeskK8sArgs(hasCluster, hasScope, hasNamespace, hasEnvAndRg), "invalid arguments")
 
 		// A stale/revoked token is only worth clearing and retrying through a fresh interactive
 		// login when nothing explicit was supplied — an explicit --token or DUPLO_JIT_TOKEN that
@@ -322,13 +316,31 @@ func main() {
 	}
 }
 
+// validateHelpdeskK8sArgs checks the three-way mutually-exclusive identifier choice for the
+// helpdesk-k8s subcommand: exactly one of --cluster-id, --scope-id, --namespace-id, with the
+// last requiring both --env-id and --rg-id alongside it. Returns nil when the combination is
+// valid, so the caller can DieIf on it directly.
+func validateHelpdeskK8sArgs(hasCluster, hasScope, hasNamespace, hasEnvAndRg bool) error {
+	switch {
+	case !hasCluster && !hasScope && !hasNamespace:
+		return errors.New("must specify --cluster-id, --scope-id, or --namespace-id")
+	case (hasCluster && hasScope) || (hasCluster && hasNamespace) || (hasScope && hasNamespace):
+		return errors.New("--cluster-id, --scope-id, and --namespace-id are mutually exclusive")
+	case hasNamespace && !hasEnvAndRg:
+		return errors.New("--namespace-id requires --env-id and --rg-id")
+	default:
+		return nil
+	}
+}
+
 // callHelpdeskWithRetry resolves a helpdesk-k8s client (internal.MustHelpdeskClient) and calls
 // fn. When the client came from a cached or freshly-interactive token (noExplicitToken) and fn's
 // error is a 401 (expired or revoked token), the cached token is cleared and the whole
 // resolve-and-call cycle retries exactly once through a fresh interactive login — never when an
 // explicit --token/DUPLO_JIT_TOKEN was supplied, which must fail loudly instead.
-func callHelpdeskWithRetry[T any](host, apiHost, token string, interactive bool, port int, noExplicitToken bool,
-	fn func(*duplocloud.Client) (*T, duplocloud.ClientError)) (*T, duplocloud.ClientError) {
+func callHelpdeskWithRetry(host, apiHost, token string, interactive bool, port int, noExplicitToken bool,
+	fn func(*duplocloud.Client) (*duplocloud.HelpdeskK8sClusterConfig, duplocloud.ClientError),
+) (*duplocloud.HelpdeskK8sClusterConfig, duplocloud.ClientError) {
 	client := internal.MustHelpdeskClient(host, apiHost, token, interactive, port)
 	result, err := fn(client)
 	if err != nil && err.Status() == 401 && noExplicitToken {

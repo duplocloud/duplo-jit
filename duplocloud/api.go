@@ -164,7 +164,8 @@ func (c *Client) HelpdeskGetClusterJitAccess(workspaceID, clusterID string) (*He
 	env := helpdeskApiEnvelope{}
 	err := c.getAPI(
 		fmt.Sprintf("HelpdeskGetClusterJitAccess(%s,%s)", workspaceID, clusterID),
-		fmt.Sprintf("v1/aiservicedesk/user/data/workspaces/%s/environment/Clusters/%s/jitAccess", workspaceID, clusterID),
+		fmt.Sprintf("v1/aiservicedesk/user/data/workspaces/%s/environment/Clusters/%s/jitAccess",
+			url.PathEscape(workspaceID), url.PathEscape(clusterID)),
 		&env,
 	)
 	if err != nil {
@@ -176,7 +177,8 @@ func (c *Client) HelpdeskGetClusterJitAccess(workspaceID, clusterID string) (*He
 // HelpdeskGetScopeJitAccess retrieves JIT Kubernetes credentials for a Kubernetes scope
 // (Provider -> K8s -> Scope) from the new duplo-ai-helpdesk backend.
 func (c *Client) HelpdeskGetScopeJitAccess(workspaceID, scopeID, namespace string) (*HelpdeskK8sClusterConfig, ClientError) {
-	path := fmt.Sprintf("v1/aiservicedesk/user/data/workspaces/%s/scopes/%s/k8s/jitAccess", workspaceID, scopeID)
+	path := fmt.Sprintf("v1/aiservicedesk/user/data/workspaces/%s/scopes/%s/k8s/jitAccess",
+		url.PathEscape(workspaceID), url.PathEscape(scopeID))
 	if namespace != "" {
 		path = fmt.Sprintf("%s?namespace=%s", path, url.QueryEscape(namespace))
 	}
@@ -196,7 +198,7 @@ func (c *Client) HelpdeskGetScopeJitAccess(workspaceID, scopeID, namespace strin
 func (c *Client) HelpdeskGetNamespaceJitAccess(workspaceID, envID, rgID, namespaceID string, isReadOnly bool) (*HelpdeskK8sClusterConfig, ClientError) {
 	path := fmt.Sprintf(
 		"v1/aiservicedesk/user/data/workspaces/%s/environments/%s/resource-groups/%s/namespaces/%s/k8s/jitAccess?isReadOnly=%t",
-		workspaceID, envID, rgID, namespaceID, isReadOnly)
+		url.PathEscape(workspaceID), url.PathEscape(envID), url.PathEscape(rgID), url.PathEscape(namespaceID), isReadOnly)
 	env := helpdeskApiEnvelope{}
 	err := c.doAPI("POST", fmt.Sprintf("HelpdeskGetNamespaceJitAccess(%s,%s,%s,%s)", workspaceID, envID, rgID, namespaceID), path, &env)
 	if err != nil {
