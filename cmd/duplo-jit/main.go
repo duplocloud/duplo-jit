@@ -16,6 +16,12 @@ import (
 var commit string
 var version string
 
+// helpdeskK8sCmd is the subcommand name for talking to the new duplo-ai-helpdesk backend
+// (workspace/cluster/scope/namespace identifiers), distinct from the legacy "k8s" subcommand
+// (tenant/plan identifiers). A kubeconfig's exec.args may omit it and infer the mode instead —
+// see argsContainFlag below.
+const helpdeskK8sCmd = "helpdesk-k8s"
+
 func main() {
 	var admin *bool
 	var duploOps *bool
@@ -47,7 +53,7 @@ func main() {
 
 	// Parse the subcommand
 	if len(os.Args) < 2 {
-		fmt.Printf("%s: expected 'aws', 'duplo', 'k8s', 'helpdesk-k8s' or 'clear-cache' subcommands\n", os.Args[0])
+		fmt.Printf("%s: expected 'aws', 'duplo', 'k8s', '%s' or 'clear-cache' subcommands\n", os.Args[0], helpdeskK8sCmd)
 		os.Exit(1)
 	}
 	cmd := os.Args[1]
@@ -67,12 +73,12 @@ func main() {
 	} else if cmd == "clear-cache" {
 		internal.ClearAllCaches()
 		os.Exit(0)
-	} else if cmd != "aws" && cmd != "duplo" && cmd != "k8s" && cmd != "helpdesk-k8s" {
+	} else if cmd != "aws" && cmd != "duplo" && cmd != "k8s" && cmd != helpdeskK8sCmd {
 		// Not a recognized literal subcommand. A kubeconfig's exec.args may omit the
-		// "helpdesk-k8s" name entirely and pass its flags directly — inferred from --workspace-id,
+		// helpdeskK8sCmd name entirely and pass its flags directly — inferred from --workspace-id,
 		// the one flag every helpdesk-k8s invocation always carries and no other mode uses.
 		if strings.HasPrefix(cmd, "-") && argsContainFlag(os.Args[1:], "workspace-id") {
-			cmd = "helpdesk-k8s"
+			cmd = helpdeskK8sCmd
 			flagArgs = os.Args[1:]
 		} else {
 			fmt.Printf("%s: %s: subcommand not implemented\n", os.Args[0], cmd)
@@ -89,7 +95,7 @@ func main() {
 	if cmd == "k8s" || cmd == "aws" {
 		tenantID = flag.String("tenant", "", "Get credentials for the given tenant")
 	}
-	if cmd == "helpdesk-k8s" {
+	if cmd == helpdeskK8sCmd {
 		workspaceID = flag.String("workspace-id", "", "Helpdesk workspace ID")
 		clusterID = flag.String("cluster-id", "", "Cluster ID (mutually exclusive with --scope-id and --namespace-id)")
 		scopeID = flag.String("scope-id", "", "Scope ID (mutually exclusive with --cluster-id and --namespace-id)")
@@ -241,7 +247,7 @@ func main() {
 		// Finally, we can output credentials.
 		internal.OutputK8sCreds(creds, cacheKey)
 
-	case "helpdesk-k8s":
+	case helpdeskK8sCmd:
 		// Distinct from "k8s" above: this mode talks to the new duplo-ai-helpdesk backend
 		// (workspace/cluster/scope identifiers), not the legacy Duplo platform (tenant/plan).
 		//
